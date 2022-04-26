@@ -6,7 +6,8 @@ export EquivalentPosition,
        SymmetryGroup3D,
        find_refid,
        PeriodicGraphEmbedding,
-       PeriodicGraphEmbedding3D
+       PeriodicGraphEmbedding3D,
+       sort_periodicgraphembedding!
        
 
 ## EquivalentPosition
@@ -302,9 +303,9 @@ const PeriodicGraphEmbedding3D = PeriodicGraphEmbedding{3}
 
 function PeriodicGraphEmbedding{D,T}(g::PeriodicGraph{D}, pos, cell::Cell=Cell()) where {D,T}
     if eltype(pos) == SVector{D,T}
-        return PeriodicGraphEmbedding{D,T}(g, collect(pos), cell)
+        return PeriodicGraphEmbedding{D,T}(g, collect(pos)::Vector{SVector{D,T}}, cell)
     end
-    PeriodicGraphEmbedding{D,T}(g, [SVector{D,T}(p) for p in pos], cell)
+    PeriodicGraphEmbedding{D,T}(g, SVector{D,T}[SVector{D,T}(p) for p in pos], cell)
 end
 function PeriodicGraphEmbedding{D}(g, pos::S, cell::Cell=Cell()) where {D,S}
     elt = eltype(S)
@@ -322,23 +323,65 @@ function PeriodicGraphEmbedding{D,T}(cell::Cell=Cell()) where {D,T}
     PeriodicGraphEmbedding{D,T}(PeriodicGraph{D}(), SVector{D,T}[], cell)
 end
 
-function PeriodicGraphEmbedding{D,T}(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell, ::Val{order}=Val(false)) where {D,T,order}
-    n = nv(graph)
+function return_to_box(g::PeriodicGraph{D}, placement::AbstractMatrix{T}) where {D,T}
+    n = nv(g)
     pos = Vector{SVector{D,T}}(undef, n)
     offsets = Vector{SVector{D,Int}}(undef, n)
     @inbounds for (i, x) in enumerate(eachcol(placement))
-        offsets[i] = floor.(Int, x)
-        pos[i] = Base.unsafe_rational.(getfield.(x, :num) .- getfield.(x, :den).*offsets[i], getfield.(x, :den))
+        ofs = floor.(Int, x)
+        offsets[i] = ofs
+        pos[i] = @. Base.unsafe_rational(numerator(x) - denominator(x)*ofs, denominator(x))
     end
-    if order
-        s = sortperm(pos)
-        pos = pos[s]
-        graph = offset_representatives!(graph, .-offsets)[s]
+    return pos, offsets
+end
+
+"""
+    PeriodicGraphEmbedding{D,T}(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell) where {D,T}
+
+Build a `PeriodicGraphEmbedding{D,T}` from the corresponding `graph` and `placement` of the
+vertices, such that each vertex has its fractional coordinates represented in a column of
+the matrix.
+
+Coordinates out of [0, 1) are translated back to the unit cell with the corresponding
+offset added to the graph.
+
+!!! warning
+    This function modifies the input `graph` if any element of `placement` is out of [0, 1).
+
+!!! note
+    To obtain a `PeriodicGraphEmbedding` with sorted positions, use
+    [`sort_periodicgraphembedding!`](@ref) instead
+"""
+function PeriodicGraphEmbedding{D,T}(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell) where {D,T}
+    pos, offsets = return_to_box(graph, placement)
+    offset_representatives!(graph, .-offsets)
+    return PeriodicGraphEmbedding{D,T}(graph, pos, cell)
+end
+
+"""
+    sort_periodicgraphembedding!(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell) where {D,T}
+
+Build a `PeriodicGraphEmbedding{D,T}` from the corresponding `graph` and `placement` of the
+vertices, so that the result has its vertices sorted by position.
+
+Return the `PeriodicGraphEmbedding` as well as the permutation of the columns of
+`placement` that yielded the resulting order on the vertices.
+
+!!! warning
+    This function modifies the input `graph` if any element of `placement` is out of [0, 1).
+
+See also [`PeriodicGraphEmbedding{D,T}(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell) where {D,T}`](@ref).
+"""
+function sort_periodicgraphembedding!(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell) where {D,T}
+    pos, offsets = return_to_box(graph, placement)
+    s = sortperm(pos)
+    if s == 1:(length(pos)) # avoid rebuilding the graph if unnecessary
+        offset_representatives!(graph, .-offsets)
         return PeriodicGraphEmbedding{D,T}(graph, pos, cell), s
-    else
-        graph = offset_representatives!(graph, .-offsets)
-        return PeriodicGraphEmbedding{D,T}(graph, pos, cell)
     end
+    pos = pos[s]
+    graph = offset_representatives!(graph, .-offsets)[s]
+    return PeriodicGraphEmbedding{D,T}(graph, pos, cell), s
 end
 
 Base.getindex(pge::PeriodicGraphEmbedding, i::Integer) = pge.pos[i]
@@ -351,6 +394,13 @@ end
 
 ## SymmetryGroup3D
 
+"""
+    PeriodicSymmetry3D{T} <: PeriodicGraphs.AbstractSymmetry
+
+Single symmetry of a `PeriodicGraphEmbedding3D{T}`
+
+See `PeriodicGraphs.AbstractSymmetry` for information on the API.
+"""
 struct PeriodicSymmetry3D{T} <: PeriodicGraphs.AbstractSymmetry
     vmap::SubArray{PeriodicVertex3D,1,Matrix{PeriodicVertex3D},Tuple{Base.Slice{Base.OneTo{Int}},Int},true}
     rotation::SMatrix{3,3,Int,9}
