@@ -232,11 +232,13 @@ function check_valid_symmetry(pge::PeriodicGraphEmbedding{D,T}, t::SVector{D,T},
     n = length(pge.pos)
     vmap = Vector{PeriodicVertex{D}}(undef, n)
     dichotomy = T <: Rational && issorted
-    if !(T <: Rational)
-        mat = Float64.(pge.cell.mat)
-        buffer, ortho, safemin = prepare_periodic_distance_computations(mat)
+    if !dichotomy
+        notencountered = trues(n)
+        if !(T <: Rational)
+            mat = Float64.(pge.cell.mat)
+            buffer, ortho, safemin = prepare_periodic_distance_computations(mat)
+        end
     end
-    notencountered = trues(n)
     for k in 1:n
         curr_pos = pge.pos[k]
         transl = (isnothing(r) ? curr_pos : (r * curr_pos)) .+ t
@@ -247,9 +249,9 @@ function check_valid_symmetry(pge::PeriodicGraphEmbedding{D,T}, t::SVector{D,T},
             while j - i > 1
                 m = (j+i)>>1
                 if cmp(x, pge.pos[m]) < 0
-                    j = m - notencountered[m]
+                    j = m
                 else
-                    i = m + notencountered[m]
+                    i = m
                 end
             end
             i -= i > length(pge.pos)
@@ -268,10 +270,10 @@ function check_valid_symmetry(pge::PeriodicGraphEmbedding{D,T}, t::SVector{D,T},
                 _j = findnext(notencountered, _j+1)
             end
             (T <: Rational ? pge.pos[i] == x : isapprox(mindist, 0.0; atol=0.0001)) || return nothing
+            notencountered[i] = false
         end
         vtypes === nothing || vtypes[i] == vtypes[k] || return nothing
         vmap[k] = PeriodicVertex{D}(i, ofs)
-        notencountered[i] = false
     end
     for e in edges(pge.g)
         src = vmap[e.src]
