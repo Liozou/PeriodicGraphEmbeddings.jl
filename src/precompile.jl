@@ -1,5 +1,6 @@
 # types.jl
 precompile(Tuple{Type{CrystalNets.EquivalentPosition}, SMatrix{3,3,Int,9}, SVector{3,Rational{Int}}})
+precompile(Tuple{typeof(Base.deepcopy_internal),Vector{CrystalNets.EquivalentPosition},IdDict{Any, Any}})
 precompile(Tuple{typeof(CrystalNets.find_refid), Vector{String}})
 precompile(Tuple{typeof(parse), Type{CrystalNets.EquivalentPosition}, String, NTuple{3,String}})
 precompile(Tuple{typeof(CrystalNets.rationaltostring), Int, Bool, Bool})

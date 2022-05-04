@@ -8,12 +8,12 @@ export EquivalentPosition,
        PeriodicGraphEmbedding,
        PeriodicGraphEmbedding3D,
        sort_periodicgraphembedding!
-       
+
 
 ## EquivalentPosition
 
 """
-    EquivalentPosition
+    EquivalentPosition{T}
 
 Representation of a symmetry operation in 3D, defined by a matrix multiplication and addition.
 
@@ -29,9 +29,9 @@ julia> eq([1//3, 0, 1//4])
  1//2
 ```
 """
-struct EquivalentPosition
+struct EquivalentPosition{T}
     mat::SMatrix{3,3,Int,9}
-    ofs::SVector{3,Rational{Int}}
+    ofs::SVector{3,T}
 end
 
 (eq::EquivalentPosition)(x) = muladd(eq.mat, x, eq.ofs)
@@ -158,17 +158,16 @@ function Base.parse(::Type{EquivalentPosition}, s::AbstractString, refid=("x", "
             end
         end
     end
-    EquivalentPosition(SMatrix{3,3,Int,9}(mat), SVector{3,Rational{Int}}(ofs))
+    EquivalentPosition{Rational{Int}}(SMatrix{3,3,Int,9}(mat), SVector{3,Rational{Int}}(ofs))
 end
 
-function rationaltostring(x::Union{Int,Rational}, notofs::Bool, first::Bool)
+function __tostring(x::T, notofs::Bool, first::Bool) where T
     if notofs && (x == 1 || x == -1)
         return x < 0 ? "-" : first ? "" : "+"
     end
     nopluscond = x < 0 || first
-    x isa Int && return nopluscond ? string(x) : string('+', x)
-    num = numerator(x)
-    den = denominator(x)
+    T == Int && return nopluscond ? string(x) : string('+', x)
+    num, den = T <: Rational ? (numerator(x), denominator(x)) : (x, 1)
     if isone(den)
         return nopluscond ? string(num) : string('+', num)
     end
@@ -181,14 +180,14 @@ function Base.show(io::IO, eq::EquivalentPosition)
         first = true
         for j in 1:3
             if eq.mat[i,j] != 0
-                coeff = rationaltostring(eq.mat[i,j], true, first)
+                coeff = __tostring(eq.mat[i,j], true, first)
                 first = false
                 print(io, coeff)
                 print(io, xyz[j])
             end
         end
         if eq.ofs[i] != 0
-            print(io, rationaltostring(eq.ofs[i], false, first))
+            print(io, __tostring(eq.ofs[i], false, first))
         end
         i < 3 && print(io, ',')
     end
@@ -287,7 +286,8 @@ Embedding in euclidean space of a `PeriodicGraph` of dimension `D`.
 Each vertex is assigned a `D`-uplet of coordinates of type `T`.
 
 `PeriodicGraphEmbedding3D` is provided as an alias for `PeriodicGraphEmbedding{3}`.
-Symmetry detection can only be performed on `PeriodicGraphEmbedding3D`.
+Symmetry detection provided by PeriodicGraphEmbeddings.jl can only be performed on
+`PeriodicGraphEmbedding3D`.
 """
 struct PeriodicGraphEmbedding{D,T}
     g::PeriodicGraph{D}
@@ -403,15 +403,16 @@ See `PeriodicGraphs.AbstractSymmetry` for information on the API.
 """
 struct PeriodicSymmetry3D{T} <: PeriodicGraphs.AbstractSymmetry
     vmap::SubArray{PeriodicVertex3D,1,Matrix{PeriodicVertex3D},Tuple{Base.Slice{Base.OneTo{Int}},Int},true}
-    rotation::SMatrix{3,3,Int,9}
-    translation::SVector{3,T}
+    eq::EquivalentPosition{T}
 end
 Base.getindex(symm::PeriodicSymmetry3D, i::Integer) = symm.vmap[i].v
 function Base.getindex(symm::PeriodicSymmetry3D, x::PeriodicVertex3D)
     dst = symm.vmap[x.v]
-    _ofs = muladd(symm.rotation, x.ofs, dst.ofs)
+    _ofs = muladd(symm.eq.mat, x.ofs, dst.ofs)
     PeriodicVertex3D(dst.v, _ofs)
 end
+(symm::PeriodicSymmetry3D)(x::AbstractVector) = (symm.eq)(x)
+(symm::PeriodicSymmetry3D)(x::AbstractMatrix) = symm.eq.mat * x
 
 
 """
@@ -422,8 +423,7 @@ Store the information on the available symmetry operations available on a
 """
 struct SymmetryGroup3D{T} <: PeriodicGraphs.AbstractSymmetryGroup{PeriodicSymmetry3D{T}}
     vmaps::Matrix{PeriodicVertex3D}
-    rotations::Vector{SMatrix{3,3,Int,9}}
-    translations::Vector{SVector{3,T}}
+    eqs::Vector{EquivalentPosition{T}}
     uniquemap::Vector{Int}
     uniques::Vector{Int}
     hasmirror::Bool
@@ -432,18 +432,17 @@ end
 (s::SymmetryGroup3D)(i::Integer) = s.uniques[s.uniquemap[i]]
 Base.unique(s::SymmetryGroup3D) = s.uniques
 function Base.getindex(s::SymmetryGroup3D{T}, i::Integer) where {T}
-    PeriodicSymmetry3D{T}((@view s.vmaps[:,i]), s.rotations[i], s.translations[i])
+    PeriodicSymmetry3D{T}((@view s.vmaps[:,i]), s.eqs[i])
 end
 Base.iterate(s::SymmetryGroup3D, state=1) = state > length(s) ? nothing : (s[state], state+1)
-Base.eltype(::Type{SymmetryGroup3D}) = SubArray{Int,1,Matrix{Int},Tuple{Base.Slice{Base.OneTo{Int}},Int},true}
 Base.length(s::SymmetryGroup3D) = size(s.vmaps, 2)
 function Base.one(s::SymmetryGroup3D)
     n = length(s.uniquemap)
     @view reshape(collect(Base.OneTo(n)), n, 1)[:,1]
 end
 
-function SymmetryGroup3D{T}(vmaps_list, rots, transs, hasmirror, n) where T
-    m = length(rots)
+function SymmetryGroup3D(vmaps_list, eqs::Vector{EquivalentPosition{T}}, hasmirror, n) where T
+    m = length(eqs)
     keepuniques = trues(n)
     vmaps = Matrix{PeriodicVertex3D}(undef, n, m)
     for i in 1:m
@@ -473,5 +472,10 @@ function SymmetryGroup3D{T}(vmaps_list, rots, transs, hasmirror, n) where T
         isempty(undeterminedmask) && break
         undetermined = undetermined[undeterminedmask]
     end
-    return SymmetryGroup3D{T}(vmaps, rots, transs, uniquemap, uniques, hasmirror)
+    return SymmetryGroup3D{T}(vmaps, eqs, uniquemap, uniques, hasmirror)
+end
+
+function SymmetryGroup3D{T}(vmaps_list, rots::AbstractVector{<:SMatrix}, transs, hasmirror, n) where T
+    eqs = [EquivalentPosition{T}(r, t) for (r, t) in zip(rots, transs)]
+    return SymmetryGroup3D(vmaps_list, eqs, hasmirror, n)
 end
