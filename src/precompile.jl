@@ -42,3 +42,7 @@ end
 # topology.jl (TOCHANGE)
 precompile(Tuple{typeof(CrystalNets.check_valid_symmetry), cnet{D,T}, pos{D,T}, Vector{collision}, Nothing})
 precompile(Tuple{typeof(CrystalNets.check_valid_symmetry), cnet{D,T}, pos{D,T}, Vector{collision}})
+
+
+# io (TOCHANGE)
+@enforce precompile(Tuple{typeof(PeriodicGraphEmbeddings.export_vtf), String, crystclust})

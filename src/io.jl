@@ -1,0 +1,102 @@
+export export_vtf
+
+"""
+    function export_vtf(file, pge::PeriodicGraphEmbedding3D{T}, types=nothing, repeatedges=6, colorname=false, tostring=string, atomnumof==(a,i)->(a isa Integer ? a : i)) where T
+
+Export a `PeriodicGraphEmbedding3D` to a .vtf `file` (readable by VMD).
+
+If specified, `types` is a list of types for each vertex of `pge`. Each type is converted
+to string by the `tostring` function.
+The `atomnumof` function takes two arguments `ty` and `i` where `ty` is a type and `i` is
+the number of the vertex, and return an `Int` representing an atom number.
+"""
+function export_vtf(file, pge::PeriodicGraphEmbedding3D{T}, types=nothing, repeatedges=6, colorname=false, tostring=string, atomnumof=(a,i)->(a isa Integer ? a : i)) where T
+    mkpath(splitdir(file)[1])
+    n = nv(pge.g)
+    open(file, write=true) do f
+        invcorres = [PeriodicVertex3D(i) for i in 1:n]
+        corres = Dict{PeriodicVertex3D,Int}([invcorres[i]=>i for i in 1:n])
+        encounteredtypes = Dict{Symbol,String}()
+        atomnums = Int[]
+        numencounteredtypes = 0
+        println(f, """
+        ###############################
+        # written by PeriodicGraphEmbeddings.jl
+        ###############################
+        """)
+
+        for i in 1:n
+            ty = isnothing(types) ? Symbol("") : types[i]
+            sty = ty === Symbol("") ? string(i) : tostring(ty)
+            if length(sty) > 16
+                sty = sty[1:13]*"etc" # otherwise VMD fails to load the .vtf
+            end
+            name = if colorname
+                _name = get(encounteredtypes, ty, missing)
+                if _name isa String
+                    _name
+                else
+                    numencounteredtypes += 1
+                    encounteredtypes[ty] = string(" name ", numencounteredtypes)
+                end
+            else
+                n ≥ 32768 ? "" : string(" name ", i)
+            end
+            atomnum = ty === Symbol("") ? 0 : atomnumof(ty, i)
+            push!(atomnums, atomnum)
+            resid = colorname ? i : 0
+            println(f, "atom $(i-1) type $sty$name resid $resid atomicnumber $atomnum")
+        end
+        j = n + 1
+        for _ in 1:repeatedges
+            jmax = j - 1
+            for i in 1:jmax
+                vertex = invcorres[i]
+                for x in neighbors(pge.g, vertex.v)
+                    y = PeriodicVertex3D(x.v, x.ofs .+ vertex.ofs)
+                    if get!(corres, y, j) == j
+                        j += 1
+                        push!(invcorres, y)
+                    end
+                end
+            end
+        end
+        for i in n+1:length(invcorres)
+            v = invcorres[i].v
+            ofs = invcorres[i].ofs
+            ty = isnothing(types) ? Symbol("") : types[v]
+            sty = ty === Symbol("") ? string(i) : tostring(ty)
+            if length(sty) > 16
+                sty = sty[1:13]*"etc"
+            end
+            name = colorname ? string(" name ", encounteredtypes[ty]) :
+                    n ≥ 32768 ? "" : string(" name ", v)
+            atomnum = atomnums[v]
+            resid = colorname ? i : PeriodicGraphs.hash_position(ofs)
+            println(f, "atom $(i-1) type $sty$name resid $resid atomicnumber $atomnum")
+        end
+        println(f)
+
+        for (i,x) in enumerate(invcorres)
+            for neigh in neighbors(pge.g, x.v)
+                j = get(corres, PeriodicVertex3D(neigh.v, neigh.ofs .+ x.ofs), nothing)
+                isnothing(j) && continue
+                if i < j
+                    println(f, "bond ", i - 1, ':', j - 1)
+                end
+            end
+        end
+        println(f)
+
+        ((_a, _b, _c), (_α, _β, _γ)), mat = cell_parameters(pge.cell)
+        println(f, "pbc $_a $_b $_c $_α $_β $_γ\n")
+
+        println(f, "ordered")
+        for x in invcorres
+            coord = mat * ((T <: Rational ? widen.(pge.pos[x.v]) : pge.pos[x.v]) .+ x.ofs)
+            join(f, round.(Float64.(coord); digits=15), ' ')
+            println(f)
+        end
+    end
+    nothing
+end
