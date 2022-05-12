@@ -1988,7 +1988,7 @@ const HALL_SYMBOLS = Tuple{String,String}[
     ("-I 4bd 2c 3", "cubic"),
 ]
 
-#= Raw data (scraped from https://yseto.net/?page_id=29
+# Raw data (scraped from https://yseto.net/?page_id=29
 
 const RAW_SYMMETRY_DATA = Tuple{Int,Int,String,String,String,String}[
     # ("Hall number", IT table number, Hall symbol, HM symbol, Full notation, Crystal system)
@@ -2523,6 +2523,3 @@ const RAW_SYMMETRY_DATA = Tuple{Int,Int,String,String,String,String}[
     (529, 229, "-I 4 2 3", "Im-3m", "I4/m-32/m", "cubic"),
     (530, 230, "-I 4bd 2c 3", "Ia-3d", "I41/a-32/d", "cubic"),
 ]
-
-=#
-
