@@ -16,6 +16,7 @@ using Tokenize
 
 include("utils.jl")
 include("types.jl")
+include("other.jl")
 include("symmetries.jl")
 include("io.jl")
 
