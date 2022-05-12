@@ -124,7 +124,7 @@ function export_space_group_table(space_groups=collect_table_seto(),
         println(f, "]")
         println(f)
 
-        println(f, "#= Raw data (scraped from https://yseto.net/?page_id=29")
+        println(f, "# Raw data (scraped from https://yseto.net/?page_id=29")
         println(f)
         println(f, "const RAW_DATA = Tuple{Int,Int,String,String,String,String}[")
         println(f, "    # (\"Hall number\", IT table number, Hall symbol, HM symbol, Full notation, Crystal system)")
@@ -133,8 +133,6 @@ function export_space_group_table(space_groups=collect_table_seto(),
                        "\", \"", full, "\", \"", system, "\"),")
         end
         println(f, "]")
-        println(f)
-        println(f, "=#")
         println(f)
     end
 end

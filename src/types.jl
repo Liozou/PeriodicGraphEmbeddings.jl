@@ -299,6 +299,8 @@ struct PeriodicGraphEmbedding{D,T}
     end
 end
 
+==(x::PeriodicGraphEmbedding, y::PeriodicGraphEmbedding) = x.g == y.g && x.pos == y.pos && x.cell == y.cell
+
 const PeriodicGraphEmbedding3D = PeriodicGraphEmbedding{3}
 
 function PeriodicGraphEmbedding{D,T}(g::PeriodicGraph{D}, pos, cell::Cell=Cell()) where {D,T}
