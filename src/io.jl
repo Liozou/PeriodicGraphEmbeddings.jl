@@ -1,4 +1,4 @@
-export export_vtf
+export export_vtf, export_cgd
 
 """
     function export_vtf(file, pge::PeriodicGraphEmbedding3D{T}, types=nothing, repeatedges=6, colorname=false, tostring=string, atomnumof==(a,i)->(a isa Integer ? a : i)) where T
@@ -99,4 +99,57 @@ function export_vtf(file, pge::PeriodicGraphEmbedding3D{T}, types=nothing, repea
         end
     end
     nothing
+end
+
+function export_cgd(file, pge::PeriodicGraphEmbedding, name=basename(splitext(file)[1]), append=false)
+    mkpath(splitdir(file)[1])
+    open(file; write=true, append) do f
+        println(f, "CRYSTAL")
+        println(f, "  NAME\t", name)
+        ((__a, __b, __c), (__α, __β, __γ)), _ = cell_parameters(pge.cell)
+        _a, _b, _c, _α, _β, _γ = Float64.((__a, __b, __c, __α, __β, __γ))
+        print(f, "  GROUP\t\"")
+        print(f, RAW_SYMMETRY_DATA[pge.cell.hall][4])
+        println(f, "\"")
+        println(f, "  CELL\t", _a, ' ', _b, ' ', _c, ' ', _α, ' ', _β, ' ', _γ, ' ')
+        println(f, "  ATOM")
+        for i in 1:length(pge.pos)
+            pos = pge.pos[i]
+            println(f, "    ", i, ' ', degree(pge.g, i), ' ', pos[1], ' ',
+                    pos[2], ' ', pos[3])
+        end
+        println(f, "  EDGE")
+        for i in 1:length(pge.pos)
+            for e in neighbors(pge.g, i)
+                e.v < i && continue
+                dest = pge.pos[e.v] .+ e.ofs
+                println(f, "    ", i, '\t', dest[1], ' ', dest[2], ' ', dest[3])
+            end
+        end
+        println(f, "\nEND")
+    end
+end
+
+function export_cgd(file, g::PeriodicGraph, name=basename(splitext(file)[1]), append=false)
+    mkpath(splitdir(file)[1])
+    open(file; write=true, append) do f
+        println(f, "PERIODIC_GRAPH")
+        println(f, "  NAME ", name)
+        println(f, "  EDGES")
+        repr = reverse(split(string(g)))
+        n = parse(Int, pop!(repr))
+        m = length(repr) ÷ (n+2)
+        for _ in 1:m
+            src = pop!(repr)
+            dst = pop!(repr)
+            ofs = Vector{String}(undef, n)
+            for i in 1:n
+                ofs[i] = pop!(repr)
+            end
+            print(f, "    ", src, ' ', dst, ' ')
+            join(f, ofs, ' ')
+            println(f)
+        end
+        println(f, "END\n")
+    end
 end
