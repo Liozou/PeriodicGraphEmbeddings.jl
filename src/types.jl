@@ -198,7 +198,7 @@ end
 ## Cell
 
 """
-    Cell
+    Cell{T}
 
 Representation of a periodic cell in 3D. Contains information about the cell
 (axes lengths and angles) and its symmetry group, through its Hall number.
@@ -209,31 +209,36 @@ See [`SPACE_GROUP_HALL`](@ref),
 and [`SPACE_GROUP_IT`](@ref)
 for the correspondance between Hall number and usual symbolic representations.
 """
-struct Cell
+struct Cell{T}
     hall::Int
     mat::SMatrix{3,3,BigFloat,9} # Cartesian coordinates of a, b and c
-    equivalents::Vector{EquivalentPosition}
+    equivalents::Vector{EquivalentPosition{T}}
 
-    Cell(hall, mat::AbstractMatrix, equivalents) = new(hall, mat, equivalents)
+    Cell{T}(hall, mat::AbstractMatrix, equivalents) where {T} = new{T}(hall, mat, equivalents)
+    function Cell(hall, mat::AbstractMatrix, equivalents::AbstractVector{EquivalentPosition{T}}) where T
+        new{T}(hall, mat, equivalents)
+    end
 end
 
 function ==(c1::Cell, c2::Cell)
     c1.hall == c2.hall && c1.mat == c2.mat
 end
 
-function Cell(hall, (a, b, c), (α, β, γ), eqs=EquivalentPosition[])
+function Cell{T}(hall, (a, b, c), (α, β, γ), eqs=EquivalentPosition{T}[]) where T
     cosα = cosd(α); cosβ = cosd(β); cosγ = cosd(γ); sinγ = sind(γ)
     ω = sqrt(1 - cosα^2 - cosβ^2 - cosγ^2 + 2*cosα*cosβ*cosγ)
     mat = SMatrix{3,3,BigFloat,9}([a  b*cosγ  c*cosβ ;
                                   0   b*sinγ  c*(cosα - cosβ*cosγ)/sinγ ;
                                   0   0       c*ω/sinγ ])
     if isempty(eqs)
-        eqs = get_symmetry_equivalents(hall)
+        eqs = get_symmetry_equivalents(T, hall)
         popfirst!(eqs) # corresponds to the identity
     end
-    return Cell(hall, mat, eqs)
+    return Cell{T}(hall, mat, eqs)
 end
-Cell() = Cell(1, (10, 10, 10), (90, 90, 90), EquivalentPosition[])
+Cell(hall, vecs, angs, eqs=EquivalentPosition{Rational{Int}}[]) = Cell{Rational{Int}}(hall, vecs, angs, eqs)
+Cell{T}() where {T} = Cell(1, (10, 10, 10), (90, 90, 90), EquivalentPosition{T}[])
+Cell() = Cell{Rational{Int}}()
 
 function cell_parameters(mat::AbstractMatrix)
     _a, _b, _c = eachcol(mat)
@@ -260,19 +265,22 @@ function cell_parameters(cell::Cell)
     return (lengths, angles), normalized_mat
 end
 
-Cell(cell::Cell, mat::StaticArray{Tuple{3,3},BigFloat}) = Cell(cell.hall, mat, cell.equivalents)
-Cell(mat::StaticArray{Tuple{3,3},BigFloat}) = Cell(Cell(), mat)
+Cell(cell::Cell{T}, mat::StaticArray{Tuple{3,3},BigFloat}) where {T} = Cell{T}(cell.hall, mat, cell.equivalents)
+Cell{T}(mat::StaticArray{Tuple{3,3},BigFloat}) where {T} = Cell(Cell{T}(), mat)
+Cell(mat::StaticArray{Tuple{3,3},BigFloat}) = Cell{Rational{Int}}(mat)
 
 function Base.show(io::IO, cell::Cell)
     ((__a, __b, __c), (__α, __β, __γ)), _ = cell_parameters(cell)
     _a, _b, _c, _α, _β, _γ = Float64.((__a, __b, __c, __α, __β, __γ))
-    print(io, Cell, '(', cell.hall, ", (", _a, ", ", _b, ", ", _c, "), (", _α, ", ", _β, ", ", _γ, ')')
+    print(io, cell isa Cell{Rational{Int}} ? Cell : typeof(cell))
+    print(io, '(', cell.hall, ", (", _a, ", ", _b, ", ", _c, "), (", _α, ", ", _β, ", ", _γ, ')')
 end
 function Base.show(io::IO, ::MIME"text/plain", cell::Cell)
     ((__a, __b, __c), (__α, __β, __γ)), _ = cell_parameters(cell)
     _a, _b, _c, _α, _β, _γ = Float64.((__a, __b, __c, __α, __β, __γ))
     hall_symbol, crystal_system = HALL_SYMBOLS[cell.hall]
-    print(io, Cell, " with Hall symbol ", hall_symbol, " (", crystal_system, ") and parameters ")
+    print(io, cell isa Cell{Rational{Int}} ? Cell : typeof(cell))
+    print(io, " with Hall symbol ", hall_symbol, " (", crystal_system, ") and parameters ")
     print(io, "a=", _a, ", b=", _b, ", c=", _c, ", α=", _α, ", β=", _β, ", γ=", _γ)
 end
 
@@ -292,9 +300,9 @@ Symmetry detection provided by PeriodicGraphEmbeddings.jl can only be performed 
 struct PeriodicGraphEmbedding{D,T}
     g::PeriodicGraph{D}
     pos::Vector{SVector{D,T}}
-    cell::Cell
+    cell::Cell{Rational{Int}}
 
-    function PeriodicGraphEmbedding{D,T}(g::PeriodicGraph{D}, pos::Vector{SVector{D,T}}, cell::Cell) where {D,T}
+    function PeriodicGraphEmbedding{D,T}(g::PeriodicGraph{D}, pos::Vector{SVector{D,T}}, cell::Cell{Rational{Int}}) where {D,T}
         new{D,T}(g, pos, cell)
     end
 end
