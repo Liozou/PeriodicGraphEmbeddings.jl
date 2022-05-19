@@ -157,26 +157,31 @@ end
 
 
 """
-    get_symmetry_equivalents(hall)
+    get_symmetry_equivalents([T=Rational{Int},] hall)
 
-The list of `EquivalentPosition` corresponding to a symmetry group given by its Hall number.
+The list of `EquivalentPosition{T}` corresponding to a symmetry group given by its Hall number.
 
 Wrapper around `spg_get_symmetry_from_database`.
 """
-function get_symmetry_equivalents(hall)
+function get_symmetry_equivalents(T, hall)
     rotations = Array{Cint}(undef, 3, 3, 192)
     translations = Array{Cdouble}(undef, 3, 192)
     len = ccall((:spg_get_symmetry_from_database, libsymspg), Cint,
                 (Ptr{Cint}, Ptr{Cdouble}, Cint), rotations, translations, hall)
-    eqs = EquivalentPosition[]
+    eqs = EquivalentPosition{Rational{Int}}[]
     for i in 1:len
         rot = SMatrix{3,3,Int,9}(transpose(@view rotations[:,:,i]))
-        tr = SVector{3,Cdouble}(@view translations[:,i])
-        trans = SVector{3,Rational{Int}}(round.(Int, 360 .* tr) .// 360)
-        push!(eqs, EquivalentPosition(rot, trans))
+        if T <: Rational
+            tr = SVector{3,Cdouble}(@view translations[:,i])
+            trans = SVector{3,T}(round.(Int, 360 .* tr) .// 360)
+            push!(eqs, EquivalentPosition(rot, trans))
+        else
+            push!(eqs, EquivalentPosition(rot, SVector{3,T}(@view translations[:,i])))
+        end
     end
     return eqs
 end
+get_symmetry_equivalents(hall) = get_symmetry_equivalents(Rational{Int}, hall)
 
 """
     get_spglib_dataset(pge::PeriodicGraphEmbedding{3}, vtypes=nothing)
@@ -259,10 +264,11 @@ function check_valid_symmetry(pge::PeriodicGraphEmbedding{D,T}, t::SVector{D,T},
         else
             i::Int = findfirst(notencountered)
             _j = findnext(notencountered, i+1)
-            mindist = T <: Rational ? norm(pge.pos[i] .- x) : periodic_distance!(buffer, pge.pos[i] .- x, mat, ortho, safemin)
+            buffer .= pge.pos[i] .- x
+            mindist = T <: Rational ? norm(pge.pos[i] .- x) : periodic_distance!(buffer, mat, ortho, safemin)
             while _j isa Int
-                newdiff = pge.pos[_j] .- x
-                newdist = T <: Rational ? norm(newdiff) : periodic_distance!(buffer, newdiff, mat, ortho, safemin)
+                buffer .= pge.pos[_j] .- x
+                newdist = T <: Rational ? norm(buffer) : periodic_distance!(buffer, mat, ortho, safemin)
                 if newdist < mindist
                     mindist = newdist
                     i = _j

@@ -48,6 +48,7 @@ function periodic_distance!(buffer, u, mat, ortho, safemin)
     end
     return ref
 end
+periodic_distance!(u, mat, ortho, safemin) = periodic_distance!(u, u, mat, ortho, safemin)
 
 """
     periodic_distance(u, mat, ortho=nothing, safemin=nothing)
