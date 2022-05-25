@@ -125,7 +125,7 @@ function find_hall_number(hallsymbol, hm=hallsymbol, it=0, warnonnotfound=false)
         warnonnotfound && @warn lazy"Hall symbol provided but not recognised: $hallsymbol"
     end
     if hm != ""
-        hm = hm[1]*lowercase(@view hm[2:end])
+        hm = lowercase(hm)
         dense_hm = replace(join(split(hm)), ('_'=>""))
         hall = get(SPACE_GROUP_HM, dense_hm, 0)
         hall == 0 || return hall
@@ -168,7 +168,7 @@ function get_symmetry_equivalents(T, hall)
     translations = Array{Cdouble}(undef, 3, 192)
     len = ccall((:spg_get_symmetry_from_database, libsymspg), Cint,
                 (Ptr{Cint}, Ptr{Cdouble}, Cint), rotations, translations, hall)
-    eqs = EquivalentPosition{Rational{Int}}[]
+    eqs = EquivalentPosition{T}[]
     for i in 1:len
         rot = SMatrix{3,3,Int,9}(transpose(@view rotations[:,:,i]))
         if T <: Rational
@@ -184,16 +184,16 @@ end
 get_symmetry_equivalents(hall) = get_symmetry_equivalents(Rational{Int}, hall)
 
 """
-    get_spglib_dataset(pge::PeriodicGraphEmbedding{3}, vtypes=nothing)
+    get_spglib_dataset(pge::PeriodicGraphEmbedding3D, vtypes=nothing)
 
 Wrapper around `spg_get_dataset`.
 
 If `vtypes !== nothing`, ensure that two vertices `x` and `y` cannot be symmetry-related
 if `vtypes[x] != vtypes[y]`.
 """
-function get_spglib_dataset(pge::PeriodicGraphEmbedding{3,T}, vtypes=nothing) where T
+function get_spglib_dataset(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing) where T
     lattice = Matrix{Cdouble}(adjoint(pge.cell.mat)) # transpose to account for row-major operations
-    n = nv(pge.graph)
+    n = nv(pge.g)
     positions = Matrix{Cdouble}(undef, 3, n)
     if vtypes !== nothing
         types = Vector{Cint}(undef, n)
@@ -203,7 +203,7 @@ function get_spglib_dataset(pge::PeriodicGraphEmbedding{3,T}, vtypes=nothing) wh
         types = zeros(Cint, n)
     end
     for i in 1:n
-        positions[:,i] .= pge.cell.mat * pge.pos[i]
+        positions[:,i] .= pge.pos[i]
         if vtypes !== nothing
             j += ((types[i] = get!(vtypes_to_int, vtypes[i], j)) == j)
         end
@@ -239,9 +239,10 @@ function check_valid_symmetry(pge::PeriodicGraphEmbedding{D,T}, t::SVector{D,T},
     dichotomy = T <: Rational && issorted
     if !dichotomy
         notencountered = trues(n)
+        buffer = MVector{D,Float64}(undef)
         if !(T <: Rational)
             mat = Float64.(pge.cell.mat)
-            buffer, ortho, safemin = prepare_periodic_distance_computations(mat)
+            _, ortho, safemin = prepare_periodic_distance_computations(mat)
         end
     end
     for k in 1:n

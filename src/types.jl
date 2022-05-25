@@ -35,6 +35,7 @@ struct EquivalentPosition{T}
 end
 
 (eq::EquivalentPosition)(x) = muladd(eq.mat, x, eq.ofs)
+EquivalentPosition{T}() where T = EquivalentPosition{T}(one(SMatrix{3,3,Int,9}), zero(SVector{3,T}))
 
 """
     find_refid(eqs)
@@ -98,7 +99,6 @@ function Base.parse(::Type{EquivalentPosition}, s::AbstractString, refid=("x", "
     curr_sign::Union{Bool, Nothing} = nothing
     encountered_div::Bool = false
     i::Int = 1
-    something_written = false
     for x in tokenize(lowercase(s))
         k = Tokenize.Tokens.kind(x)
         k === Tokenize.Tokens.WHITESPACE && continue
@@ -122,7 +122,6 @@ function Base.parse(::Type{EquivalentPosition}, s::AbstractString, refid=("x", "
                 mat[i,j] += sign * val
                 curr_val = nothing
                 curr_sign = nothing
-                something_written = true
             else
                 if x.kind === Tokenize.Tokens.FWD_SLASH
                     encountered_div = true
@@ -148,8 +147,6 @@ function Base.parse(::Type{EquivalentPosition}, s::AbstractString, refid=("x", "
                     curr_sign = false
                 elseif k === Tokenize.Tokens.COMMA || k === Tokenize.Tokens.SEMICOLON
                     i > 2 && error(lazy"Too many dimensions specified for symmetry equivalent {$s}")
-                    something_written || error(lazy"{$s} is not a symmetry equivalent (no dependency expressed in position $i)")
-                    something_written = false
                     i += 1
                 else
                     k !== Tokenize.Tokens.ENDMARKER && error(lazy"Unknown end of line marker for symmetry equivalent {$s}")
@@ -186,7 +183,7 @@ function Base.show(io::IO, eq::EquivalentPosition)
                 print(io, xyz[j])
             end
         end
-        if eq.ofs[i] != 0
+        if eq.ofs[i] != 0 || first
             print(io, __tostring(eq.ofs[i], false, first))
         end
         i < 3 && print(io, ',')
@@ -220,8 +217,13 @@ struct Cell{T}
     end
 end
 
-function ==(c1::Cell, c2::Cell)
-    c1.hall == c2.hall && c1.mat == c2.mat
+function ==(cell1::Cell, cell2::Cell)
+    cell1.hall == cell2.hall || return false
+    cell1.mat == cell2.mat && return true
+    istriu(cell1.mat) && istriu(cell2.mat) && return false
+    (a1, b1, c1), (α1, β1, γ1) = cell_parameters(cell1.mat)
+    (a2, b2, c2), (α2, β2, γ2) = cell_parameters(cell2.mat)
+    return Float32.((a1, b1, c1, α1, β1, γ1)) == Float32.((a2, b2, c2, α2, β2, γ2))
 end
 
 function Cell{T}(hall, (a, b, c), (α, β, γ), eqs=EquivalentPosition{T}[]) where T
@@ -273,7 +275,7 @@ function Base.show(io::IO, cell::Cell)
     ((__a, __b, __c), (__α, __β, __γ)), _ = cell_parameters(cell)
     _a, _b, _c, _α, _β, _γ = Float64.((__a, __b, __c, __α, __β, __γ))
     print(io, cell isa Cell{Rational{Int}} ? Cell : typeof(cell))
-    print(io, '(', cell.hall, ", (", _a, ", ", _b, ", ", _c, "), (", _α, ", ", _β, ", ", _γ, ')')
+    print(io, '(', cell.hall, ", (", _a, ", ", _b, ", ", _c, "), (", _α, ", ", _β, ", ", _γ, ')', ')')
 end
 function Base.show(io::IO, ::MIME"text/plain", cell::Cell)
     ((__a, __b, __c), (__α, __β, __γ)), _ = cell_parameters(cell)
@@ -346,7 +348,9 @@ function return_to_box(g::PeriodicGraph{D}, placement::AbstractMatrix{T}) where 
 end
 
 """
-    PeriodicGraphEmbedding{D,T}(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell) where {D,T}
+    PeriodicGraphEmbedding{D,T}(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell=Cell()) where {D,T}
+    PeriodicGraphEmbedding{D}(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell=Cell()) where D
+    PeriodicGraphEmbedding(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell=Cell())
 
 Build a `PeriodicGraphEmbedding{D,T}` from the corresponding `graph` and `placement` of the
 vertices, such that each vertex has its fractional coordinates represented in a column of
@@ -354,6 +358,8 @@ the matrix.
 
 Coordinates out of [0, 1) are translated back to the unit cell with the corresponding
 offset added to the graph.
+
+The `cell` optional argument will not be used if `D > 3`.
 
 !!! warning
     This function modifies the input `graph` if any element of `placement` is out of [0, 1).
@@ -369,7 +375,7 @@ function PeriodicGraphEmbedding{D,T}(graph::PeriodicGraph{D}, placement::Abstrac
 end
 
 """
-    sort_periodicgraphembedding!(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell) where {D,T}
+    sort_periodicgraphembedding!(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell=Cell()) where {D,T}
 
 Build a `PeriodicGraphEmbedding{D,T}` from the corresponding `graph` and `placement` of the
 vertices, so that the result has its vertices sorted by position.
@@ -377,12 +383,14 @@ vertices, so that the result has its vertices sorted by position.
 Return the `PeriodicGraphEmbedding` as well as the permutation of the columns of
 `placement` that yielded the resulting order on the vertices.
 
+The `cell` optional argument will not be used if `D > 3`.
+
 !!! warning
     This function modifies the input `graph` if any element of `placement` is out of [0, 1).
 
 See also [`PeriodicGraphEmbedding{D,T}(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell) where {D,T}`](@ref).
 """
-function sort_periodicgraphembedding!(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell) where {D,T}
+function sort_periodicgraphembedding!(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell=Cell()) where {D,T}
     pos, offsets = return_to_box(graph, placement)
     s = sortperm(pos)
     if s == 1:(length(pos)) # avoid rebuilding the graph if unnecessary
@@ -396,10 +404,47 @@ end
 
 Base.getindex(pge::PeriodicGraphEmbedding, i::Integer) = pge.pos[i]
 Base.getindex(pge::PeriodicGraphEmbedding, u::PeriodicVertex) = pge.pos[u.v] .+ u.ofs
+Base.length(pge::PeriodicGraphEmbedding) = length(pge.pos)
 
 function Base.getindex(pge::PeriodicGraphEmbedding{D,T}, vmap) where {D,T}
     PeriodicGraphEmbedding{D,T}(pge.g[vmap], pge.pos[vmap], pge.cell)
 end
+
+"""
+    PeriodicGraphEmbedding{D,T}(pge::PeriodicGraphEmbedding{N,S}) where {D,T,N,S}
+    PeriodicGraphEmbedding{D}(pge::PeriodicGraphEmbedding{N,S}) where {D,N,S}
+
+Return a `PeriodicGraphEmbedding{D,T}` with the same structural information as the input
+`pge` but embedded in `D` dimensions instead of `N`.
+
+If `T` is not provided it defaults to `S`.
+
+The same caveats that apply to `PeriodicGraph{D}(graph::PeriodicGraph{N})`
+are valid here: namely, the dimensionality of the graph should be at least `D` and the
+behaviour is undefined if `D < N` and there are multiple non-identical connected components.
+
+Moreover, if `D < N`, the `N-D` last coordinates of all vertices must be
+zero or this function will error.
+"""
+function PeriodicGraphEmbedding{D,T}(pge::PeriodicGraphEmbedding{N,S}) where {D,T,N,S}
+    N == D && S == T && return pge
+    newpositions = Vector{SVector{D,T}}(undef, length(pge))
+    if D > N
+        @simd for i in 1:length(pge)
+            @inbounds newpositions[i] = SVector{D,T}([pge.pos[i]; zero(SVector{D-N,T})])
+        end
+    else
+        for (i, pos) in enumerate(pge.pos)
+            for j in (D+1):N
+                pos[j] == 0 || throw(DimensionMismatch(lazy"Cannot convert to dimension D=$D because coordinate $j of vertex $i is not 0 and $j > D."))
+            end
+            @inbounds newpositions[i] = SVector{D,T}(@view pos[1:D])
+        end
+    end
+    newg = PeriodicGraph{D}(pge.g)
+    return PeriodicGraphEmbedding{D,T}(newg, newpositions, pge.cell)
+end
+PeriodicGraphEmbedding{D}(pge::PeriodicGraphEmbedding{N,S}) where {D,N,S} = PeriodicGraphEmbedding{D,S}(pge)
 
 
 ## SymmetryGroup3D
@@ -428,8 +473,7 @@ end
 """
     SymmetryGroup3D{T} <: PeriodicGraphs.AbstractSymmetryGroup
 
-Store the information on the available symmetry operations available on a
-`PeriodicGraphEmbedding3D`.
+Store the information on the symmetry operations available on a `PeriodicGraphEmbedding3D`.
 """
 struct SymmetryGroup3D{T} <: PeriodicGraphs.AbstractSymmetryGroup{PeriodicSymmetry3D{T}}
     vmaps::Matrix{PeriodicVertex3D}
@@ -446,9 +490,10 @@ function Base.getindex(s::SymmetryGroup3D{T}, i::Integer) where {T}
 end
 Base.iterate(s::SymmetryGroup3D, state=1) = state > length(s) ? nothing : (s[state], state+1)
 Base.length(s::SymmetryGroup3D) = size(s.vmaps, 2)
-function Base.one(s::SymmetryGroup3D)
+function Base.one(s::SymmetryGroup3D{T}) where T
     n = length(s.uniquemap)
-    @view reshape(collect(Base.OneTo(n)), n, 1)[:,1]
+    mat = reshape([PeriodicVertex3D(i) for i in 1:n], n, 1)
+    PeriodicSymmetry3D{T}((@view mat[:,1]), EquivalentPosition{T}())
 end
 
 function SymmetryGroup3D(vmaps_list, eqs::Vector{EquivalentPosition{T}}, hasmirror, n) where T
