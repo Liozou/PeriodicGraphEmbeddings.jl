@@ -66,7 +66,7 @@ This implementation assumes that the cell corresponds to a reduced lattice. It m
 invalid for some edge cases otherwise.
 
 For optimal performance, use `periodic_distance!` with `buffer`, `ortho` and `safemin`
-obtained from `PeriodicGraphEmbeddings.prepare_periodic_distance_computations`.
+obtained from `prepare_periodic_distance_computations`.
 """
 function periodic_distance(u, mat, ortho=nothing, safemin=nothing)
     if ortho === nothing || safemin === nothing
