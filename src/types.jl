@@ -217,15 +217,6 @@ struct Cell{T}
     end
 end
 
-function ==(cell1::Cell, cell2::Cell)
-    cell1.hall == cell2.hall || return false
-    cell1.mat == cell2.mat && return true
-    istriu(cell1.mat) && istriu(cell2.mat) && return false
-    (a1, b1, c1), (α1, β1, γ1) = cell_parameters(cell1.mat)
-    (a2, b2, c2), (α2, β2, γ2) = cell_parameters(cell2.mat)
-    return Float32.((a1, b1, c1, α1, β1, γ1)) == Float32.((a2, b2, c2, α2, β2, γ2))
-end
-
 function Cell{T}(hall, (a, b, c), (α, β, γ), eqs=EquivalentPosition{T}[]) where T
     cosα = cosd(α); cosβ = cosd(β); cosγ = cosd(γ); sinγ = sind(γ)
     ω = sqrt(1 - cosα^2 - cosβ^2 - cosγ^2 + 2*cosα*cosβ*cosγ)
@@ -241,6 +232,10 @@ end
 Cell(hall, vecs, angs, eqs=EquivalentPosition{Rational{Int}}[]) = Cell{Rational{Int}}(hall, vecs, angs, eqs)
 Cell{T}() where {T} = Cell(1, (10, 10, 10), (90, 90, 90), EquivalentPosition{T}[])
 Cell() = Cell{Rational{Int}}()
+
+Cell(cell::Cell{T}, mat::StaticArray{Tuple{3,3},BigFloat}) where {T} = Cell{T}(cell.hall, mat, cell.equivalents)
+Cell{T}(mat::StaticArray{Tuple{3,3},BigFloat}) where {T} = Cell(Cell{T}(), mat)
+Cell(mat::StaticArray{Tuple{3,3},BigFloat}) = Cell{Rational{Int}}(mat)
 
 function cell_parameters(mat::AbstractMatrix)
     _a, _b, _c = eachcol(mat)
@@ -267,9 +262,15 @@ function cell_parameters(cell::Cell)
     return (lengths, angles), normalized_mat
 end
 
-Cell(cell::Cell{T}, mat::StaticArray{Tuple{3,3},BigFloat}) where {T} = Cell{T}(cell.hall, mat, cell.equivalents)
-Cell{T}(mat::StaticArray{Tuple{3,3},BigFloat}) where {T} = Cell(Cell{T}(), mat)
-Cell(mat::StaticArray{Tuple{3,3},BigFloat}) = Cell{Rational{Int}}(mat)
+function ==(cell1::Cell, cell2::Cell)
+    cell1.hall == cell2.hall || return false
+    cell1.mat == cell2.mat && return true
+    istriu(cell1.mat) && istriu(cell2.mat) && return false
+    (a1, b1, c1), (α1, β1, γ1) = cell_parameters(cell1.mat)
+    (a2, b2, c2), (α2, β2, γ2) = cell_parameters(cell2.mat)
+    return Float32.((a1, b1, c1, α1, β1, γ1)) == Float32.((a2, b2, c2, α2, β2, γ2))
+end
+
 
 function Base.show(io::IO, cell::Cell)
     ((__a, __b, __c), (__α, __β, __γ)), _ = cell_parameters(cell)
