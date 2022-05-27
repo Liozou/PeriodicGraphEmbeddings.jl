@@ -1,0 +1,3 @@
+ignore:
+  - "src/precompile.jl" 
+  - "src/symmetry_scraping.jl"
