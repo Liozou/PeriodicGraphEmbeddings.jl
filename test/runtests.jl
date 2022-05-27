@@ -1,5 +1,8 @@
-using PeriodicGraphEmbeddings, PeriodicGraphs, Graphs, StaticArrays
 using Test
+using PeriodicGraphEmbeddings, PeriodicGraphs, Graphs, StaticArrays
+
+using Aqua
+Aqua.test_all(PeriodicGraphs)
 
 @testset "EquivalentPosition" begin
     @test PeriodicGraphEmbeddings.find_refid(String[]) == ("x", "y", "z")

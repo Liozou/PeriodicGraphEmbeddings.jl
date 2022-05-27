@@ -79,8 +79,8 @@ end
 """
     Base.parse(::Type{EquivalentPosition}, s::AbstractString, refid=("x", "y", "z"))
 
-Parse a string into its represented `EquivalentPosition` given the name of the three
-variables obtained from [`find_refid`](@ref PeriodicGraphEmbeddings.find_refid).
+Parse a string into its represented [`EquivalentPosition`](@ref) given the name of the
+three variables obtained from [`find_refid`](@ref PeriodicGraphEmbeddings.find_refid).
 
 ## Example
 ```jldoctest
@@ -200,10 +200,10 @@ end
 Representation of a periodic cell in 3D. Contains information about the cell
 (axes lengths and angles) and its symmetry group, through its Hall number.
 
-See [`SPACE_GROUP_HALL`](@ref),
-[`SPACE_GROUP_FULL`](@ref),
-[`SPACE_GROUP_HM`](@ref)
-and [`SPACE_GROUP_IT`](@ref)
+See [`PeriodicGraphEmbeddings.SPACE_GROUP_HALL`](@ref),
+[`PeriodicGraphEmbeddings.SPACE_GROUP_FULL`](@ref),
+[`PeriodicGraphEmbeddings.SPACE_GROUP_HM`](@ref)
+and [`PeriodicGraphEmbeddings.SPACE_GROUP_IT`](@ref)
 for the correspondance between Hall number and usual symbolic representations.
 """
 struct Cell{T}
@@ -311,6 +311,11 @@ end
 
 ==(x::PeriodicGraphEmbedding, y::PeriodicGraphEmbedding) = x.g == y.g && x.pos == y.pos && x.cell == y.cell
 
+"""
+    PeriodicGraphEmbedding3D
+
+Alias for `PeriodicGraphEmbedding{3}`
+"""
 const PeriodicGraphEmbedding3D = PeriodicGraphEmbedding{3}
 
 function PeriodicGraphEmbedding{D,T}(g::PeriodicGraph{D}, pos, cell::Cell=Cell()) where {D,T}
@@ -352,9 +357,9 @@ end
     PeriodicGraphEmbedding{D}(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell=Cell()) where D
     PeriodicGraphEmbedding(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell=Cell())
 
-Build a `PeriodicGraphEmbedding{D,T}` from the corresponding `graph` and `placement` of the
-vertices, such that each vertex has its fractional coordinates represented in a column of
-the matrix.
+Build a [`PeriodicGraphEmbedding{D,T}`](@ref) from the corresponding `graph` and
+`placement` of the vertices, such that each vertex has its fractional coordinate
+represented in a column of the matrix.
 
 Coordinates out of [0, 1) are translated back to the unit cell with the corresponding
 offset added to the graph.
@@ -365,7 +370,7 @@ The `cell` optional argument will not be used if `D > 3`.
     This function modifies the input `graph` if any element of `placement` is out of [0, 1).
 
 !!! note
-    To obtain a `PeriodicGraphEmbedding` with sorted positions, use
+    To obtain a [`PeriodicGraphEmbedding`](@ref) with sorted positions, use
     [`sort_periodicgraphembedding!`](@ref) instead
 """
 function PeriodicGraphEmbedding{D,T}(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell) where {D,T}
@@ -377,10 +382,10 @@ end
 """
     sort_periodicgraphembedding!(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell=Cell()) where {D,T}
 
-Build a `PeriodicGraphEmbedding{D,T}` from the corresponding `graph` and `placement` of the
-vertices, so that the result has its vertices sorted by position.
+Build a [`PeriodicGraphEmbedding{D,T}`](@ref) from the corresponding `graph` and
+`placement` of the vertices, so that the result has its vertices sorted by position.
 
-Return the `PeriodicGraphEmbedding` as well as the permutation of the columns of
+Return the [`PeriodicGraphEmbedding`](@ref) as well as the permutation of the columns of
 `placement` that yielded the resulting order on the vertices.
 
 The `cell` optional argument will not be used if `D > 3`.
@@ -414,8 +419,8 @@ end
     PeriodicGraphEmbedding{D,T}(pge::PeriodicGraphEmbedding{N,S}) where {D,T,N,S}
     PeriodicGraphEmbedding{D}(pge::PeriodicGraphEmbedding{N,S}) where {D,N,S}
 
-Return a `PeriodicGraphEmbedding{D,T}` with the same structural information as the input
-`pge` but embedded in `D` dimensions instead of `N`.
+Return a [`PeriodicGraphEmbedding{D,T}`](@ref) with the same structural information as the
+input `pge` but embedded in `D` dimensions instead of `N`.
 
 If `T` is not provided it defaults to `S`.
 
@@ -452,9 +457,10 @@ PeriodicGraphEmbedding{D}(pge::PeriodicGraphEmbedding{N,S}) where {D,N,S} = Peri
 """
     PeriodicSymmetry3D{T} <: PeriodicGraphs.AbstractSymmetry
 
-Single symmetry of a `PeriodicGraphEmbedding3D{T}`
+Single symmetry of a [`PeriodicGraphEmbedding3D{T}`](@ref).
 
-See `PeriodicGraphs.AbstractSymmetry` for information on the API.
+See [`PeriodicGraphs.AbstractSymmetry`](https://liozou.github.io/PeriodicGraphs.jl/dev/symmetries/#PeriodicGraphs.AbstractSymmetry)
+for information on the API.
 """
 struct PeriodicSymmetry3D{T} <: PeriodicGraphs.AbstractSymmetry
     vmap::SubArray{PeriodicVertex3D,1,Matrix{PeriodicVertex3D},Tuple{Base.Slice{Base.OneTo{Int}},Int},true}
@@ -473,7 +479,8 @@ end
 """
     SymmetryGroup3D{T} <: PeriodicGraphs.AbstractSymmetryGroup
 
-Store the information on the symmetry operations available on a `PeriodicGraphEmbedding3D`.
+Store the information on the symmetry operations available on a
+[`PeriodicGraphEmbedding3D`](@ref).
 """
 struct SymmetryGroup3D{T} <: PeriodicGraphs.AbstractSymmetryGroup{PeriodicSymmetry3D{T}}
     vmaps::Matrix{PeriodicVertex3D}
