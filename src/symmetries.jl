@@ -104,7 +104,20 @@ function Base.getproperty(ds::SpglibDataset, name::Symbol)
 end
 
 
-function find_hall_number(hallsymbol, hm=hallsymbol, it=0, warnonnotfound=false)
+"""
+    find_hall_number(hallsymbol::AbstractString, hm::AbstractString=hallsymbol, it::Integer=0, warnonnotfound=false)
+
+Determine the hall number corresponding to the given `hallsymbol`.
+The Hermann-Mauguin symbol `hm` can alternatively be used, or simply the International
+Table number of the space group `it` to get the hall number of the standard setting of the
+group.
+
+Passing an empty string to `hallsymbol` or `hm` or 0 to `it` disregards the argument.
+
+The optional argument `warnonnotfound` specifies whether to print a warning if one of the
+provided arguments was not reckognized.
+"""
+function find_hall_number(hallsymbol::AbstractString, hm::AbstractString=hallsymbol, it::Integer=0, warnonnotfound=false)
     if hallsymbol != ""
         hsymbol = lowercase(hallsymbol)
         hall = get(SPACE_GROUP_HALL, replace(hsymbol, ('_' => ' ')), 0)
@@ -296,7 +309,8 @@ __rattype(::Type{Rational{T}}) where {T}  = T
 """
     find_symmetries(pge::PeriodicGraphEmbedding3D, vtypes=nothing, check_symmetry=check_valid_symmetry)
 
-Return a `SymmetryGroup3D` object storing the list of symmetry operations on the graph embedding.
+Return a [`SymmetryGroup3D`](@ref) object storing the list of symmetry operations on the
+graph embedding.
 
 If `vtypes !== nothing`, ensure that two vertices `x` and `y` cannot be symmetry-related
 if `vtypes[x] != vtypes[y]`.
