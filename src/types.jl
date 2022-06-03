@@ -7,7 +7,7 @@ export EquivalentPosition,
        find_refid,
        PeriodicGraphEmbedding,
        PeriodicGraphEmbedding3D,
-       sort_periodicgraphembedding!
+       SortedPeriodicGraphEmbedding
 
 
 ## EquivalentPosition
@@ -372,7 +372,7 @@ The `cell` optional argument will not be used if `D > 3`.
 
 !!! note
     To obtain a [`PeriodicGraphEmbedding`](@ref) with sorted positions, use
-    [`sort_periodicgraphembedding!`](@ref) instead
+    [`SortedPeriodicGraphEmbedding`](@ref) instead
 """
 function PeriodicGraphEmbedding{D,T}(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell) where {D,T}
     pos, offsets = return_to_box(graph, placement)
@@ -381,7 +381,16 @@ function PeriodicGraphEmbedding{D,T}(graph::PeriodicGraph{D}, placement::Abstrac
 end
 
 """
-    sort_periodicgraphembedding!(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell=Cell()) where {D,T}
+    SortedPeriodicGraphEmbedding{T}
+
+Constructor for `PeriodicGraphEmbedding{D,T} where D` with sorted positions.
+"""
+struct SortedPeriodicGraphEmbedding{T}
+    __noconstructor() = nothing
+end
+
+"""
+    SortedPeriodicGraphEmbedding{T}(graph::PeriodicGraph{D}, placement::AbstractMatrix, cell::Cell=Cell()) where {D,T}
 
 Build a [`PeriodicGraphEmbedding{D,T}`](@ref) from the corresponding `graph` and
 `placement` of the vertices, so that the result has its vertices sorted by position.
@@ -394,9 +403,10 @@ The `cell` optional argument will not be used if `D > 3`.
 !!! warning
     This function modifies the input `graph` if any element of `placement` is out of [0, 1).
 
-See also [`PeriodicGraphEmbedding{D,T}(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell) where {D,T}`](@ref).
+See also [`PeriodicGraphEmbedding{D,T}(graph, placement::AbstractMatrix{T}, cell) where {D,T}`](@ref)
+and [`SortedPeriodicGraphEmbedding(graph, placement::AbstractMatrix, cell)`](@ref).
 """
-function sort_periodicgraphembedding!(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell=Cell()) where {D,T}
+function SortedPeriodicGraphEmbedding{T}(graph::PeriodicGraph{D}, placement::AbstractMatrix, cell::Cell=Cell()) where {D,T}
     pos, offsets = return_to_box(graph, placement)
     s = sortperm(pos)
     if s == 1:(length(pos)) # avoid rebuilding the graph if unnecessary
@@ -407,6 +417,73 @@ function sort_periodicgraphembedding!(graph::PeriodicGraph{D}, placement::Abstra
     graph = offset_representatives!(graph, .-offsets)[s]
     return PeriodicGraphEmbedding{D,T}(graph, pos, cell), s
 end
+
+"""
+    double_widen(::Type)
+
+Internal function used to selectively widen small integer and rational types.
+
+This is useful to avoid overflow without sacrificing too much efficiency by
+always having to resolve to very large types.
+"""
+double_widen(::Type{T}) where {T} = T
+double_widen(::Type{Int64}) = Int128
+double_widen(::Type{Int32}) = Int64
+double_widen(::Type{Int16}) = Int64
+double_widen(::Type{Int8}) = Int32
+
+macro tryinttype(T)
+    tmin = :(typemin($T))
+    tmax = :(typemax($T))
+    S = :(double_widen($T))
+    return esc(quote
+        if (($tmin <= m) & (M <= $tmax))
+            return SortedPeriodicGraphEmbedding{Rational{$S}}(graph, placement, cell)
+        end
+    end)
+end
+
+"""
+    SortedPeriodicGraphEmbedding(graph::PeriodicGraph{D}, placement::AbstractMatrix, cell::Cell=Cell()) where D
+
+Build a [`PeriodicGraphEmbedding{D,T}`](@ref) from the corresponding `graph` and `placement` of the
+vertices, so that the result has its vertices sorted by position. `T` is determined as the
+smallest type between `Rational{Int32}`, `Rational{Int64}`, `Rational{Int128}` and
+`Rational{BigInt}` that can fit all the elements of `placement` with some additional
+margin.
+
+Return the [`PeriodicGraphEmbedding`](@ref) as well as the permutation of the columns of
+`placement` that yielded the resulting order on the vertices.
+
+The `cell` optional argument will not be used if `D > 3`.
+
+!!! warning
+    This function modifies the input `graph` if any element of `placement` is out of [0, 1).
+
+!!! tip
+    This function is inherently type-unstable since `T` cannot be statically determined.
+    This can be useful because having a too large `T` may slow down later computations.
+    
+    To provide the parameter explicitly, pass it to the `SortedPeriodicGraphEmbedding`
+    constructor by calling `SortedPeriodicGraphEmbedding{T}(graph, placement, cell)`.
+
+See also [`PeriodicGraphEmbedding{D,T}(graph, placement::AbstractMatrix{T}, cell) where {D,T}`](@ref).
+"""
+function SortedPeriodicGraphEmbedding(graph::PeriodicGraph{D}, placement::AbstractMatrix, cell::Cell=Cell()) where D
+    if isempty(placement)
+        return PeriodicGraphEmbedding{D,Rational{Int32}}(cell), Int[]
+    end
+    m = min(minimum(numerator.(placement)), minimum(denominator.(placement)))
+    M = max(maximum(numerator.(placement)), maximum(denominator.(placement)))
+    @tryinttype Int8
+    @tryinttype Int16
+    @tryinttype Int32
+    @tryinttype Int64
+    @tryinttype Int128
+    return SortedPeriodicGraphEmbedding{Rational{BigInt}}(graph, placement, cell)
+    # Type-unstable function, but yields better performance than always falling back to BigInt
+end
+
 
 Base.getindex(pge::PeriodicGraphEmbedding, i::Integer) = pge.pos[i]
 Base.getindex(pge::PeriodicGraphEmbedding, u::PeriodicVertex) = pge.pos[u.v] .+ u.ofs

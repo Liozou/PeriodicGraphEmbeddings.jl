@@ -64,6 +64,10 @@ function _precompile_()
     @enforce precompile(Tuple{Type{Cell}})
     @enforce precompile(Tuple{Type{Cell}, SMatrix{3,3,BigFloat,9}})
 
+    for T in (Int8, Int16, Int32, Int64, Int128, BigInt)
+        @enforce precompile(Tuple{typeof(PeriodicGraphEmbeddings.double_widen), Type{T}})
+    end
+
     cell = Cell{Rational{Int}}
     for T in (Float32, Float64, Rational{Int32}, Rational{Int64}, Rational{Int128}, Rational{BigInt})
         for D in 0:3
@@ -75,8 +79,12 @@ function _precompile_()
             @enforce precompile(Tuple{Type{PeriodicGraphEmbedding{D,T}}, cell})
             @enforce precompile(Tuple{typeof(PeriodicGraphEmbeddings.return_to_box), PeriodicGraph{D}, Matrix{T}})
             @enforce precompile(Tuple{Type{PeriodicGraphEmbedding{D,T}}, PeriodicGraph{D}, Matrix{T}, cell})
-            @enforce precompile(Tuple{typeof(sort_periodicgraphembedding!), PeriodicGraph{D}, Matrix{T}, cell})
-            @enforce precompile(Tuple{typeof(sort_periodicgraphembedding!), PeriodicGraph{D}, Matrix{T}})
+            for S in (Float32, Float64, Rational{Int32}, Rational{Int64}, Rational{Int128}, Rational{BigInt})
+                @enforce precompile(Tuple{Type{SortedPeriodicGraphEmbedding{T}}, PeriodicGraph{D}, Matrix{S}, cell})
+                @enforce precompile(Tuple{Type{SortedPeriodicGraphEmbedding{T}}, PeriodicGraph{D}, Matrix{S}})
+            end
+            @enforce precompile(Tuple{Type{SortedPeriodicGraphEmbedding}, PeriodicGraph{D}, Matrix{T}, cell})
+            @enforce precompile(Tuple{Type{SortedPeriodicGraphEmbedding}, PeriodicGraph{D}, Matrix{T}})
             @enforce precompile(Tuple{typeof(getindex), PeriodicGraphEmbedding{D,T}, Int})
             @enforce precompile(Tuple{typeof(getindex), PeriodicGraphEmbedding{D,T}, PeriodicVertex{D}})
             @enforce precompile(Tuple{typeof(length), PeriodicGraphEmbedding{D,T}})

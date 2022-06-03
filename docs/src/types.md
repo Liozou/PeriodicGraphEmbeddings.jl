@@ -17,7 +17,8 @@ list of positions should be permuted to be sorted, or offset to have all positio
 PeriodicGraphEmbedding
 PeriodicGraphEmbedding3D
 PeriodicGraphEmbedding{D,T}(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell) where {D,T}
-sort_periodicgraphembedding!
+SortedPeriodicGraphEmbedding
+SortedPeriodicGraphEmbedding{T}(graph::PeriodicGraph{D}, placement::AbstractMatrix, cell::Cell) where {D,T}
 PeriodicGraphEmbedding{D,T}(pge::PeriodicGraphEmbedding{N,S}) where {D,T,N,S}
 ```
 

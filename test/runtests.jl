@@ -58,11 +58,24 @@ end
     @test ofs_g == g
 
     @test !issorted([pge[1], pge[2], pge[3]])
-    new_pge, perm = sort_periodicgraphembedding!(copy(g), reduce(hcat, pos))
+    posmat = reduce(hcat, pos)
+    new_pge, perm = SortedPeriodicGraphEmbedding{Rational{Int128}}(copy(g), posmat)
+    @test new_pge isa PeriodicGraphEmbedding{2,Rational{Int128}}
     @test perm == [1, 3, 2]
     @test issorted([new_pge[1], new_pge[2], new_pge[3]])
     @test ofs_g == g
     @test new_pge == pge[perm]
+    small_new_pge, small_new_perm = SortedPeriodicGraphEmbedding(copy(g), posmat)
+    @test small_new_perm ==  perm
+    @test small_new_pge == new_pge
+    @test small_new_pge isa PeriodicGraphEmbedding{2,Rational{Int32}}
+    @test SortedPeriodicGraphEmbedding(PeriodicGraph3D(), fill(0, 3, 0))[1] == PeriodicGraphEmbedding3D{Rational{Int32}}(PeriodicGraph3D(), [])
+    bigrational = 1//(1+big(typemax(UInt128)))
+    bigpos = fill(bigrational, 1, 1)
+    big_pge, = SortedPeriodicGraphEmbedding(PeriodicGraph1D(1), bigpos)
+    @test big_pge isa PeriodicGraphEmbedding{1,Rational{BigInt}}
+    @test_throws InexactError SortedPeriodicGraphEmbedding{Rational{Int}}(PeriodicGraph1D(1), bigpos)
+    @test only(only(SortedPeriodicGraphEmbedding{Float64}(PeriodicGraph1D(1), bigpos)[1].pos)) ≈ bigrational
 
     @test pge[PeriodicVertex2D(3, (0,-1))] == [1//2, -1//3]
     @test PeriodicGraphEmbedding{2,Rational{Int}}(PeriodicGraphEmbedding{3,Rational{Int8}}(pge)) == pge
