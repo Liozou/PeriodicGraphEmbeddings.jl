@@ -1,7 +1,7 @@
 export export_vtf, export_cgd
 
 """
-    function export_vtf(file, pge::PeriodicGraphEmbedding3D{T}, types=nothing, repeatedges=6, colorname=false, tostring=string, atomnumof==(a,i)->(a isa Integer ? a : i)) where T
+    function export_vtf(file::AbstractString, pge::PeriodicGraphEmbedding3D{T}, types=nothing, repeatedges=6, colorname=false, tostring=string, atomnumof==(a,i)->(a isa Integer ? a : i)) where T
 
 Export a [`PeriodicGraphEmbedding3D`](@ref) to a .vtf `file` (readable by VMD).
 
@@ -10,7 +10,8 @@ to string by the `tostring` function.
 The `atomnumof` function takes two arguments `ty` and `i` where `ty` is a type and `i` is
 the number of the vertex, and return an `Int` representing an atom number.
 """
-function export_vtf(file, pge::PeriodicGraphEmbedding3D{T}, types=nothing, repeatedges=6, colorname=false, tostring=string, atomnumof=(a,i)->(a isa Integer ? a : i)) where T
+function export_vtf(file::AbstractString, pge::PeriodicGraphEmbedding3D{T}, types=nothing, repeatedges=6, colorname=false, tostring=string, atomnumof=(a,i)->(a isa Integer ? a : i)) where T
+    endswith(file, ".vtf") || return export_vtf(file*".vtf", pge, types, repeatedges, colorname, tostring, atomnumof)
     mkpath(splitdir(file)[1])
     n = nv(pge.g)
     open(file, write=true) do f
@@ -111,6 +112,7 @@ Systre).
 If `append` is set, the graph is added at the end of the file.
 """
 function export_cgd(file, pge::PeriodicGraphEmbedding, name=basename(splitext(file)[1]), append=false)
+    endswith(file, ".cgd") || return export_cgd(file*".cgd", pge, name, append)
     mkpath(splitdir(file)[1])
     open(file; write=true, append) do f
         println(f, "CRYSTAL")
@@ -140,6 +142,7 @@ function export_cgd(file, pge::PeriodicGraphEmbedding, name=basename(splitext(fi
 end
 
 function export_cgd(file, g::PeriodicGraph, name=basename(splitext(file)[1]), append=false)
+    endswith(file, ".cgd") || return export_cgd(file*".cgd", pge, name, append)
     mkpath(splitdir(file)[1])
     open(file; write=true, append) do f
         println(f, "PERIODIC_GRAPH")
