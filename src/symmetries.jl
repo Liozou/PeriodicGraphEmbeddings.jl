@@ -224,6 +224,7 @@ function get_spglib_dataset(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing) wh
     ptr = ccall((:spg_get_dataset, libsymspg), Ptr{SpglibDataset},
                 (Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cint}, Cint, Cdouble),
                 lattice, positions, types, n, T <: Rational ? 10*eps(Cdouble) : 0.0001)
+    ptr == Ptr{PeriodicGraphEmbeddings.SpglibDataset}() && return nothing # failure
     dataset = unsafe_load(ptr)
     # if dataset.n_atoms != n
     #     error("The periodic graph is not minimal") # TODO: update pge?
@@ -408,4 +409,19 @@ function find_symmetries(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing, check
         push!(transs, trans)
     end
     return SymmetryGroup3D{T}(vmaps, rots, transs, hasmirror, length(pge.pos))
+end
+
+function identify_symmetry(x::SymmetryGroup3D)
+    n = length(x.eqs)
+    rotations = Array{Cint}(undef, 3, 3, n+1)
+    translations = Array{Cdouble}(undef, 3, n+1)
+    rotations[:,:,1] .= [1 0 0; 0 1 0; 0 0 1]
+    translations[:,1] .= [0, 0, 0]
+    for (i, eq) in enumerate(x.eqs)
+        i > n && break
+        rotations[:,:,i+1] .= transpose(eq.mat)
+        translations[:,i+1] .= eq.ofs
+    end
+    return ccall((:spg_get_hall_number_from_symmetry, libsymspg), Cint,
+                 (Ptr{Cint}, Ptr{Cdouble}, Cint, Cdouble), rotations, translations, n, 1e-7)
 end
