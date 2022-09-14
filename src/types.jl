@@ -488,6 +488,7 @@ end
 Base.getindex(pge::PeriodicGraphEmbedding, i::Integer) = pge.pos[i]
 Base.getindex(pge::PeriodicGraphEmbedding, u::PeriodicVertex) = pge.pos[u.v] .+ u.ofs
 Base.length(pge::PeriodicGraphEmbedding) = length(pge.pos)
+Base.copy(pge::PeriodicGraphEmbedding{D,T}) where {D,T} = PeriodicGraphEmbedding{D,T}(copy(pge.g), copy(pge.pos), pge.cell)
 
 function Base.getindex(pge::PeriodicGraphEmbedding{D,T}, vmap) where {D,T}
     PeriodicGraphEmbedding{D,T}(pge.g[vmap], pge.pos[vmap], pge.cell)

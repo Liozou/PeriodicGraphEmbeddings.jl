@@ -13,4 +13,30 @@ function PeriodicGraphs.swap_axes!(pge::PeriodicGraphEmbedding{N}, t) where N
     for (i,x) in enumerate(pge.pos)
         pge.pos[i] = x[t]
     end
+    nothing
+end
+
+function PeriodicGraphs.make_supercell(cell::Cell{T}, t) where T
+    newmat = SizedMatrix{3,3,BigFloat,2,Matrix{BigFloat}}(cell.mat)
+    for i in 1:3
+        newmat[:,i] .*= t[i]
+    end
+    Cell{T}(cell.hall, newmat, cell.equivalents)
+end
+function PeriodicGraphs.make_supercell(pge::PeriodicGraphEmbedding, t)
+    g = make_supercell(pge.g, t)
+    cell = make_supercell(pge.cell, t)
+    newpos = copy(pge.pos)
+    n = length(newpos)
+    for i in 1:n
+        newpos[i] = newpos[i] ./ t
+    end
+    clock = PeriodicGraphs.MetaClock(t)
+    resize!(newpos, n*length(clock))
+    for (k, pos) in enumerate(Iterators.drop(clock, 1))
+        for i in 1:n
+            newpos[n*k+i] = newpos[i] .+ pos .// t
+        end
+    end
+    return PeriodicGraphEmbedding(g, newpos, cell)
 end

@@ -6,4 +6,4 @@ PeriodicGraphs = "18c5b727-b240-4874-878a-f2e242435bab"
 [compat]
 Documenter = "0.27"
 Graphs = "1.3"
-PeriodicGraphs = "0.8"
+PeriodicGraphs = "0.9.5"
