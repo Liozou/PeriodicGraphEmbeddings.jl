@@ -223,7 +223,7 @@ function get_spglib_dataset(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing) wh
     end
     ptr = ccall((:spg_get_dataset, libsymspg), Ptr{SpglibDataset},
                 (Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cint}, Cint, Cdouble),
-                lattice, positions, types, n, T <: Rational ? 10*eps(Cdouble) : 0.0001)
+                lattice, positions, types, n, T <: Rational ? 10*eps(Cdouble) : 0.01)
     ptr == Ptr{PeriodicGraphEmbeddings.SpglibDataset}() && return nothing # failure
     dataset = unsafe_load(ptr)
     # if dataset.n_atoms != n
@@ -290,7 +290,7 @@ function check_valid_symmetry(pge::PeriodicGraphEmbedding{D,T}, t::SVector{D,T},
                 end
                 _j = findnext(notencountered, _j+1)
             end
-            (T <: Rational ? pge.pos[i] == x : isapprox(mindist, 0.0; atol=0.0001)) || return nothing
+            (T <: Rational ? pge.pos[i] == x : isapprox(mindist, 0.0; atol=0.05)) || return nothing
             notencountered[i] = false
         end
         vtypes === nothing || vtypes[i] == vtypes[k] || return nothing
@@ -375,7 +375,7 @@ function find_symmetries(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing, check
         positions[:,i] .= uniquepos[i]
     end
 
-    ϵ = T <: Rational ? 100*eps(Cdouble) : 0.0001
+    ϵ = T <: Rational ? 100*eps(Cdouble) : 0.01
     rotations = Array{Cint}(undef, 3, 3, 384)
     translations = Array{Cdouble}(undef, 3, 384)
     len = ccall((:spg_get_symmetry, libsymspg), Cint,
