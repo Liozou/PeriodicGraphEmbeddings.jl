@@ -86,8 +86,6 @@ three variables obtained from [`find_refid`](@ref PeriodicGraphEmbeddings.find_r
 ```jldoctest
 julia> parse(EquivalentPosition, "a+0.5; c; -1/3+b", ("a", "b", "c"))
 x+1/2,z,y-1/3
-
-julia> 
 ```
 """
 function Base.parse(::Type{EquivalentPosition}, s::AbstractString, refid=("x", "y", "z"))
@@ -341,6 +339,7 @@ function PeriodicGraphEmbedding{D,T}(cell::Cell=Cell()) where {D,T}
     PeriodicGraphEmbedding{D,T}(PeriodicGraph{D}(), SVector{D,T}[], cell)
 end
 
+
 function return_to_box(g::PeriodicGraph{D}, placement::AbstractMatrix{T}) where {D,T}
     n = nv(g)
     pos = Vector{SVector{D,T}}(undef, n)
@@ -348,7 +347,7 @@ function return_to_box(g::PeriodicGraph{D}, placement::AbstractMatrix{T}) where 
     @inbounds for (i, x) in enumerate(eachcol(placement))
         ofs = floor.(Int, x)
         offsets[i] = ofs
-        pos[i] = @. Base.unsafe_rational(numerator(x) - denominator(x)*ofs, denominator(x))
+        pos[i] = T <: Rational ? (@. Base.unsafe_rational(numerator(x) - denominator(x)*ofs, denominator(x))) : (x .- ofs)
     end
     return pos, offsets
 end
@@ -463,16 +462,17 @@ The `cell` optional argument will not be used if `D > 3`.
 !!! tip
     This function is inherently type-unstable since `T` cannot be statically determined.
     This can be useful because having a too large `T` may slow down later computations.
-    
+
     To provide the parameter explicitly, pass it to the `SortedPeriodicGraphEmbedding`
     constructor by calling `SortedPeriodicGraphEmbedding{T}(graph, placement, cell)`.
 
 See also [`PeriodicGraphEmbedding{D,T}(graph, placement::AbstractMatrix{T}, cell) where {D,T}`](@ref).
 """
-function SortedPeriodicGraphEmbedding(graph::PeriodicGraph{D}, placement::AbstractMatrix, cell::Cell=Cell()) where D
+function SortedPeriodicGraphEmbedding(graph::PeriodicGraph{D}, placement::AbstractMatrix{T}, cell::Cell=Cell()) where {D,T}
     if isempty(placement)
         return PeriodicGraphEmbedding{D,Rational{Int32}}(cell), Int[]
     end
+    T <: Rational || return SortedPeriodicGraphEmbedding{T}(graph, placement, cell)
     m = min(minimum(numerator.(placement)), minimum(denominator.(placement)))
     M = max(maximum(numerator.(placement)), maximum(denominator.(placement)))
     @tryinttype Int8
