@@ -1,185 +1,120 @@
-macro enforce(expr) # strong @assert
-    msg = string(expr)
-    return :($(esc(expr)) ? $(nothing) : throw(AssertionError($msg)))
+using PeriodicGraphEmbeddings, PeriodicGraphs, Graphs, StaticArrays
+using SnoopPrecompile
+
+@static if VERSION < v"1.7-"
+    Returns(a) = (_ -> a)
 end
 
-function _precompile_()
-    ccall(:jl_generating_output, Cint, ()) == 1 || return nothing
-
-    # utils.jl
-    @enforce precompile(Tuple{typeof(prepare_periodic_distance_computations), Matrix{Float64}})
-    @enforce precompile(Tuple{typeof(prepare_periodic_distance_computations), SMatrix{3,3,Float64,9}})
-    @enforce precompile(Tuple{typeof(periodic_distance!), MVector{3,Float64}, SVector{3,Float64}, Matrix{Float64}, Bool, Float64})
-    @enforce precompile(Tuple{typeof(periodic_distance!), MVector{3,Float64}, SVector{3,Float64}, SMatrix{3,3,Float64,9}, Bool, Float64})
-    @enforce precompile(Tuple{typeof(periodic_distance!), MVector{3,Float64}, MVector{3,Float64}, Matrix{Float64}, Bool, Float64})
-    @enforce precompile(Tuple{typeof(periodic_distance!), MVector{3,Float64}, MVector{3,Float64}, SMatrix{3,3,Float64,9}, Bool, Float64})
-    @enforce precompile(Tuple{typeof(periodic_distance!), MVector{3,Float64}, Matrix{Float64}, Bool, Float64})
-    @enforce precompile(Tuple{typeof(periodic_distance!), MVector{3,Float64}, SMatrix{3,3,Float64,9}, Bool, Float64})
-    @enforce precompile(Tuple{typeof(periodic_distance), SVector{3,Float64}, Matrix{Float64}, Bool, Float64})
-    @enforce precompile(Tuple{typeof(periodic_distance), SVector{3,Float64}, Matrix{Float64}, Nothing, Nothing})
-    @enforce precompile(Tuple{typeof(periodic_distance), SVector{3,Float64}, Matrix{Float64}})
-    @enforce precompile(Tuple{typeof(periodic_distance), SVector{3,Float64}, SMatrix{3,3,Float64,9}, Bool, Float64})
-    @enforce precompile(Tuple{typeof(periodic_distance), SVector{3,Float64}, SMatrix{3,3,Float64,9}, Nothing, Nothing})
-    @enforce precompile(Tuple{typeof(periodic_distance), SVector{3,Float64}, SMatrix{3,3,Float64,9}})
-
-    # types.jl
-    @enforce precompile(Tuple{Type{EquivalentPosition}, SMatrix{3,3,Int,9}, SVector{3,Rational{Int}}})
-    @enforce precompile(Tuple{Type{EquivalentPosition}, SMatrix{3,3,Int,9}, SVector{3,Float64}})
-    @enforce precompile(Tuple{typeof(find_refid), Vector{String}})
-    @enforce precompile(Tuple{typeof(cell_parameters), SMatrix{3,3,BigFloat,9}})
-    for T in (Float64,Float32,Rational{Int})
-        @enforce precompile(Tuple{Type{EquivalentPosition{T}}})
-        @enforce precompile(Tuple{EquivalentPosition{T}, SMatrix{3,3,Int,9}})
-        @enforce precompile(Tuple{EquivalentPosition{T}, SVector{3,Float64}})
-        @enforce precompile(Tuple{EquivalentPosition{T}, SVector{3,Rational{Int}}})
-        @enforce precompile(Tuple{typeof(Base.deepcopy_internal),Vector{EquivalentPosition{T}},IdDict{Any, Any}})
-    end
-    @enforce precompile(Tuple{typeof(parse), Type{EquivalentPosition}, String, NTuple{3,String}})
-    @enforce precompile(Tuple{typeof(parse), Type{EquivalentPosition}, String})
-    for T in (Float64,Float32,Rational{Int})
-        @enforce precompile(Tuple{typeof(PeriodicGraphEmbeddings.__tostring), T, Bool, Bool})
-        @enforce precompile(Tuple{typeof(show), Base.TTY, EquivalentPosition{T}})
-        @enforce precompile(Tuple{typeof(show), Base.IOStream, EquivalentPosition{T}})
-        @enforce precompile(Tuple{Type{Cell{T}}, Int, Matrix{BigFloat}, Vector{EquivalentPosition{T}}})
-        @enforce precompile(Tuple{Type{Cell}, Int, Matrix{BigFloat}, Vector{EquivalentPosition{T}}})
-        @enforce precompile(Tuple{Type{Cell}, Int, SMatrix{3,3,T,9}, Vector{EquivalentPosition{T}}})
-        @enforce precompile(Tuple{Type{Cell}, Int, SMatrix{3,3,BigFloat,9}, Vector{EquivalentPosition{T}}})
-        @enforce precompile(Tuple{typeof(cell_parameters), Cell{T}})
-        @enforce precompile(Tuple{typeof(==), Cell{T}, Cell{T}})
-        @enforce precompile(Tuple{Type{Cell{T}}, Int, NTuple{3,BigFloat}, NTuple{3,BigFloat}, Vector{EquivalentPosition{T}}})
-        @enforce precompile(Tuple{Type{Cell{T}}, Int, NTuple{3,Int}, NTuple{3,Int}, Vector{EquivalentPosition{T}}})
-        @enforce precompile(Tuple{Type{Cell}, Int, NTuple{3,BigFloat}, NTuple{3,BigFloat}, Vector{EquivalentPosition{T}}})
-        @enforce precompile(Tuple{Type{Cell}, Int, NTuple{3,Int}, NTuple{3,Int}, Vector{EquivalentPosition{T}}})
-        @enforce precompile(Tuple{Type{Cell{T}}, Int, NTuple{3,BigFloat}, NTuple{3,BigFloat}})
-        @enforce precompile(Tuple{Type{Cell{T}}, Int, NTuple{3,Int}, NTuple{3,Int}})
-        @enforce precompile(Tuple{Type{Cell{T}}})
-        @enforce precompile(Tuple{Type{Cell}, Cell{T}, SMatrix{3,3,BigFloat,9}})
-        @enforce precompile(Tuple{Type{Cell{T}}, SMatrix{3,3,BigFloat,9}})
-        @enforce precompile(Tuple{typeof(show), Base.TTY, Cell{T}})
-        @enforce precompile(Tuple{typeof(show), Base.IOStream, Cell{T}})
-        @enforce precompile(Tuple{typeof(show), Base.TTY, MIME"text/plain", Cell{T}})
-        @enforce precompile(Tuple{typeof(show), Base.IOStream, MIME"text/plain", Cell{T}})
-    end
-    @enforce precompile(Tuple{Type{Cell}, Int, NTuple{3,BigFloat}, NTuple{3,BigFloat}})
-    @enforce precompile(Tuple{Type{Cell}})
-    @enforce precompile(Tuple{Type{Cell}, SMatrix{3,3,BigFloat,9}})
-
-    for T in (Int8, Int16, Int32, Int64, Int128, BigInt)
-        @enforce precompile(Tuple{typeof(PeriodicGraphEmbeddings.double_widen), Type{T}})
-    end
-
-    cell = Cell{Rational{Int}}
-    for T in (Float32, Float64, Rational{Int32}, Rational{Int64}, Rational{Int128}, Rational{BigInt})
-        for D in 0:3
-            @enforce precompile(Tuple{Type{PeriodicGraphEmbedding{D,T}}, PeriodicGraph{D}, Vector{SVector{D,T}}, cell})
-            @enforce precompile(Tuple{typeof(==), PeriodicGraphEmbedding{D,T}, PeriodicGraphEmbedding{D,T}})
-            @enforce precompile(Tuple{Type{PeriodicGraphEmbedding{D,T}}, PeriodicGraph{D}, Vector{SVector{D,T}}})
-            @enforce precompile(Tuple{Type{PeriodicGraphEmbedding{D}}, PeriodicGraph{D}, Vector{SVector{D,T}}, cell})
-            @enforce precompile(Tuple{Type{PeriodicGraphEmbedding}, PeriodicGraph{D}, Vector{SVector{D,T}}, cell})
-            @enforce precompile(Tuple{Type{PeriodicGraphEmbedding{D,T}}, cell})
-            @enforce precompile(Tuple{typeof(PeriodicGraphEmbeddings.return_to_box), PeriodicGraph{D}, Matrix{T}})
-            @enforce precompile(Tuple{Type{PeriodicGraphEmbedding{D,T}}, PeriodicGraph{D}, Matrix{T}, cell})
-            for S in (Float32, Float64, Rational{Int32}, Rational{Int64}, Rational{Int128}, Rational{BigInt})
-                @enforce precompile(Tuple{Type{SortedPeriodicGraphEmbedding{T}}, PeriodicGraph{D}, Matrix{S}, cell})
-                @enforce precompile(Tuple{Type{SortedPeriodicGraphEmbedding{T}}, PeriodicGraph{D}, Matrix{S}})
-            end
-            @enforce precompile(Tuple{Type{SortedPeriodicGraphEmbedding}, PeriodicGraph{D}, Matrix{T}, cell})
-            @enforce precompile(Tuple{Type{SortedPeriodicGraphEmbedding}, PeriodicGraph{D}, Matrix{T}})
-            @enforce precompile(Tuple{typeof(getindex), PeriodicGraphEmbedding{D,T}, Int})
-            @enforce precompile(Tuple{typeof(getindex), PeriodicGraphEmbedding{D,T}, PeriodicVertex{D}})
-            @enforce precompile(Tuple{typeof(length), PeriodicGraphEmbedding{D,T}})
-            @enforce precompile(Tuple{typeof(getindex), PeriodicGraphEmbedding{D,T}, Vector{Int}})
-            for N in 0:3
-                for S in (Float32, Float64, Rational{Int32}, Rational{Int64}, Rational{Int128}, Rational{BigInt})
-                    @enforce precompile(Tuple{Type{PeriodicGraphEmbedding{D,T}}, PeriodicGraphEmbedding{N,S}})
-                end
-                @enforce precompile(Tuple{Type{PeriodicGraphEmbedding{D}}, PeriodicGraphEmbedding{N,T}})
+macro _precompile_pge(N, _name)
+    g = Symbol(_name, :_g)
+    v = Symbol(:onev, N)
+    symb = gensym()
+    ret = quote end
+    for (T, _pos) in [(Float64, :_float),
+                      (Rational{Int64}, :_rat64),
+                      (Rational{Int128}, :_rat128),
+                      (Rational{BigInt}, :_ratbig)
+                     ]
+        pos = Symbol(_name, :_pos, _pos)
+        stacked = Symbol(pos, :_stacked)
+        name = Symbol(_name, _pos)
+        append!(ret.args, (quote
+            $name = PeriodicGraphEmbedding($g, $pos)
+            export_cgd(t, $name)
+            export_cgd(t, $g)
+            $name[1]
+            $name[$v]
+            $name[[2,1]]
+            make_supercell($name, $(ntuple(Returns(2), N)))
+            make_supercell($name, $(SVector{N,Int}(2 for _ in 1:N)))
+            swap_axes!($name, $([i for i in 1:N]))
+            swap_axes!($name, $(SVector{N,Int}([i for i in 1:N])))
+            offset_representatives!($name, [SVector{$N,Int}(i+j*(-1)^i for j in 1:$N) for i in 1:length($name)])
+            PeriodicGraphEmbedding($g, $stacked) == PeriodicGraphEmbedding($g, $stacked, cell)
+            PeriodicGraphEmbedding{$N}($g, $stacked)
+            PeriodicGraphEmbedding{$N}($g, $pos)
+            SortedPeriodicGraphEmbedding($g, $stacked)
+            SortedPeriodicGraphEmbedding($g, $stacked, cell)
+            SortedPeriodicGraphEmbedding{$T}($g, $stacked)
+        end).args)
+        for i in N:3
+            push!(ret.args, :($symb = PeriodicGraphEmbedding{$i}($name)))
+            for j in N:(i-1)
+                push!(ret.args, :(PeriodicGraphEmbedding{$j}($symb)))
             end
         end
     end
-
-    for T in (Float64,Float32,Rational{Int})
-        @enforce precompile(Tuple{typeof(getindex), Type{PeriodicSymmetry3D{T}}, Int})
-        @enforce precompile(Tuple{typeof(getindex), Type{PeriodicSymmetry3D{T}}, PeriodicVertex3D})
-        for S in (Float64,Float32,Rational{Int},Int)
-            @enforce precompile(Tuple{PeriodicSymmetry3D{T}, Vector{S}})
-            @enforce precompile(Tuple{PeriodicSymmetry3D{T}, SMatrix{3,3,S,9}})
-            @enforce precompile(Tuple{PeriodicSymmetry3D{T}, Matrix{T}})
-        end
-        @enforce precompile(Tuple{SymmetryGroup3D{T}, Int})
-        @enforce precompile(Tuple{typeof(unique), SymmetryGroup3D{T}})
-        @enforce precompile(Tuple{typeof(getindex), SymmetryGroup3D{T}, Int})
-        @enforce precompile(Tuple{typeof(iterate), SymmetryGroup3D{T}, Int})
-        @enforce precompile(Tuple{typeof(iterate), SymmetryGroup3D{T}})
-        @enforce precompile(Tuple{typeof(length), SymmetryGroup3D{T}})
-        @enforce precompile(Tuple{typeof(one), SymmetryGroup3D{T}})
-        @enforce precompile(Tuple{Type{SymmetryGroup3D}, Vector{Vector{PeriodicVertex3D}}, Vector{EquivalentPosition{T}}, Bool, Int})
-        @enforce precompile(Tuple{Type{SymmetryGroup3D{T}}, Vector{Vector{PeriodicVertex3D}}, Vector{SMatrix{3,3,Int,9}}, Vector{SVector{3,T}}, Bool, Int})
-    end
-
-    # other.jl
-    for D in 1:3
-        for T in (Float64,Float32,Rational{Int})
-            @enforce precompile(Tuple{typeof(PeriodicGraphs.offset_representatives!), PeriodicGraphEmbedding{D,T}, Vector{SVector{D,Int}}})
-            @enforce precompile(Tuple{typeof(PeriodicGraphs.swap_axes!), PeriodicGraphEmbedding{D,T}, SVector{D,Int}})
-            @enforce precompile(Tuple{typeof(PeriodicGraphs.swap_axes!), PeriodicGraphEmbedding{D,T}, NTuple{D,Int}})
-            @enforce precompile(Tuple{typeof(PeriodicGraphs.swap_axes!), PeriodicGraphEmbedding{D,T}, Vector{Int}})
-        end
-    end
-
-    # symmetries.jl
-    @enforce precompile(Tuple{typeof(PeriodicGraphEmbeddings.joinletters), NTuple{11,Cchar}})
-    @enforce precompile(Tuple{typeof(PeriodicGraphEmbeddings.joinletters), NTuple{17,Cchar}})
-    @enforce precompile(Tuple{typeof(PeriodicGraphEmbeddings.joinletters), NTuple{6,Cchar}})
-    @enforce precompile(Tuple{typeof(PeriodicGraphEmbeddings.joinletters), NTuple{7,Cchar}})
-    @enforce precompile(Tuple{typeof(getproperty), PeriodicGraphEmbeddings.SpglibDataset, Symbol})
-    @enforce precompile(Tuple{typeof(find_hall_number), String, String, Int, Bool})
-    @enforce precompile(Tuple{typeof(find_hall_number), String, String, Int})
-    @enforce precompile(Tuple{typeof(find_hall_number), String, String})
-    @enforce precompile(Tuple{typeof(find_hall_number), String})
-    @enforce precompile(Tuple{typeof(get_symmetry_equivalents), Rational{Int}, Int})
-    @enforce precompile(Tuple{typeof(get_symmetry_equivalents), Float64, Int})
-    @enforce precompile(Tuple{typeof(get_symmetry_equivalents), Float32, Int})
-    @enforce precompile(Tuple{typeof(get_symmetry_equivalents), Int})
-    for T in (Float32, Float64, Rational{Int32}, Rational{Int64}, Rational{Int128}, Rational{BigInt})
-        @enforce precompile(Tuple{typeof(PeriodicGraphEmbeddings.get_spglib_dataset), PeriodicGraphEmbedding3D{T}, Nothing})
-        @enforce precompile(Tuple{typeof(PeriodicGraphEmbeddings.get_spglib_dataset), PeriodicGraphEmbedding3D{T}})
-        @enforce precompile(Tuple{typeof(PeriodicGraphEmbeddings.get_spglib_dataset), PeriodicGraphEmbedding3D{T}, Vector{Int}})
-        @enforce precompile(Tuple{typeof(PeriodicGraphEmbeddings.get_spglib_dataset), PeriodicGraphEmbedding3D{T}, Vector{Symbol}})
-        @enforce precompile(Tuple{typeof(check_valid_symmetry), PeriodicGraphEmbedding3D{T}, SVector{3,T}, Nothing, Nothing, Bool})
-        @enforce precompile(Tuple{typeof(check_valid_symmetry), PeriodicGraphEmbedding3D{T}, SVector{3,T}, Nothing, Nothing})
-        @enforce precompile(Tuple{typeof(check_valid_symmetry), PeriodicGraphEmbedding3D{T}, SVector{3,T}, Nothing})
-        @enforce precompile(Tuple{typeof(check_valid_symmetry), PeriodicGraphEmbedding3D{T}, SVector{3,T}})
-        @enforce precompile(Tuple{typeof(check_valid_symmetry), PeriodicGraphEmbedding3D{T}, SVector{3,T}, SMatrix{3,3,Int,9}})
-        @enforce precompile(Tuple{typeof(check_valid_symmetry), PeriodicGraphEmbedding3D{T}, SVector{3,T}, SMatrix{3,3,Int,9}, Vector{Symbol}})
-        @enforce precompile(Tuple{typeof(check_valid_symmetry), PeriodicGraphEmbedding3D{T}, SVector{3,T}, Nothing, Vector{Symbol}})
-        @enforce precompile(Tuple{typeof(find_symmetries), PeriodicGraphEmbedding3D{T}, Nothing, typeof(check_valid_symmetry)})
-        @enforce precompile(Tuple{typeof(find_symmetries), PeriodicGraphEmbedding3D{T}, Nothing})
-        @enforce precompile(Tuple{typeof(find_symmetries), PeriodicGraphEmbedding3D{T}})
-        @enforce precompile(Tuple{typeof(find_symmetries), PeriodicGraphEmbedding3D{T}, Vector{Symbol}, typeof(check_valid_symmetry)})
-        @enforce precompile(Tuple{typeof(find_symmetries), PeriodicGraphEmbedding3D{T}, Vector{Symbol}})
-    end
-
-    # io.jl
-    for T in (Float32, Float64, Rational{Int32}, Rational{Int64}, Rational{Int128}, Rational{BigInt})
-        @enforce precompile(Tuple{typeof(export_vtf), String, PeriodicGraphEmbedding3D{T}, Nothing, Int, Bool})
-        @enforce precompile(Tuple{typeof(export_vtf), String, PeriodicGraphEmbedding3D{T}, Nothing, Int})
-        @enforce precompile(Tuple{typeof(export_vtf), String, PeriodicGraphEmbedding3D{T}, Nothing})
-        @enforce precompile(Tuple{typeof(export_vtf), String, PeriodicGraphEmbedding3D{T}, Vector{Symbol}, Int, Bool})
-        @enforce precompile(Tuple{typeof(export_vtf), String, PeriodicGraphEmbedding3D{T}, Vector{Symbol}, Int})
-        @enforce precompile(Tuple{typeof(export_vtf), String, PeriodicGraphEmbedding3D{T}, Vector{Symbol}})
-        @enforce precompile(Tuple{typeof(export_vtf), String, PeriodicGraphEmbedding3D{T}})
-        for D in 0:3
-            @enforce precompile(Tuple{typeof(export_cgd), String, PeriodicGraphEmbedding{D,T}, String, Bool})
-            @enforce precompile(Tuple{typeof(export_cgd), String, PeriodicGraphEmbedding{D,T}, String})
-            @enforce precompile(Tuple{typeof(export_cgd), String, PeriodicGraphEmbedding{D,T}})
-        end
-    end
-    for D in 0:3
-        @enforce precompile(Tuple{typeof(export_cgd), String, PeriodicGraph{D}, String, Bool})
-        @enforce precompile(Tuple{typeof(export_cgd), String, PeriodicGraph{D}, String})
-        @enforce precompile(Tuple{typeof(export_cgd), String, PeriodicGraph{D}})
-    end
+    return esc(ret)
 end
 
-_precompile_()
+@precompile_setup begin
+    apd_g = PeriodicGraph("3 1 3 0 0 0 1 44 0 0 0 2 5 1 0 0 2 21 0 0 0 2 84 0 0 0 2 93 0 0 0 3 46 0 0 0 3 50 0 0 0 3 79 0 0 0 4 6 0 0 0 4 43 0 0 0 4 60 0 0 0 4 74 0 0 0 5 78 0 0 0 6 17 0 0 0 7 69 0 0 0 7 73 0 0 0 8 35 0 0 0 8 52 0 0 0 8 62 0 0 0 8 76 0 0 0 9 16 0 0 0 9 22 0 0 0 9 30 1 0 0 9 86 0 0 0 10 13 0 0 0 10 54 0 0 0 10 85 0 0 0 10 87 0 1 0 11 45 1 0 0 11 58 0 0 0 11 81 0 0 0 11 92 0 0 0 12 40 0 0 0 12 69 0 0 0 13 77 0 0 0 14 26 0 0 -1 14 66 0 0 0 15 51 0 0 0 15 61 0 0 0 16 55 0 0 -1 17 31 0 0 0 17 35 0 0 0 17 96 0 0 0 18 24 0 0 0 18 28 0 0 0 18 50 0 0 0 18 72 0 0 1 19 51 0 0 0 19 55 0 0 0 20 36 1 0 0 20 68 0 0 1 20 82 0 0 0 20 95 0 0 0 21 26 0 0 0 22 66 0 0 0 23 48 0 0 0 23 83 0 0 0 23 93 0 0 0 23 96 1 0 0 24 57 -1 0 0 25 29 0 0 0 25 38 0 0 0 26 71 0 0 0 26 91 0 0 0 27 29 0 0 0 27 37 0 0 0 28 70 0 0 0 29 49 1 0 0 29 94 0 0 0 30 53 0 0 0 31 78 0 0 0 32 41 0 0 0 32 42 0 0 0 32 64 0 0 0 32 72 0 0 0 33 37 0 0 0 33 57 0 0 -1 34 61 0 0 0 34 69 0 0 0 36 73 0 0 0 37 42 0 0 0 37 56 0 0 0 38 65 0 1 0 38 67 0 0 0 38 85 0 0 0 39 44 0 0 0 39 57 0 0 0 40 65 0 0 0 40 81 0 0 0 40 95 0 0 0 41 77 0 0 0 43 53 0 0 0 44 84 0 0 0 44 94 0 0 0 45 61 0 0 0 46 77 0 0 0 47 51 0 0 0 47 73 0 0 0 48 59 0 0 0 49 77 0 0 0 51 75 0 0 1 52 61 0 0 0 53 75 0 0 0 53 76 0 0 0 54 88 0 0 0 55 82 0 0 0 55 92 0 0 0 56 89 0 0 0 57 91 0 0 0 58 59 0 0 0 59 62 0 0 0 59 86 0 0 0 60 70 0 0 -1 63 70 0 0 0 63 78 0 0 0 64 88 0 0 0 66 74 0 0 0 66 83 0 0 0 67 89 0 0 0 68 89 0 -1 0 69 87 0 0 0 70 71 0 0 0 73 90 0 0 1 78 79 0 0 0 80 88 0 0 0 80 89 -1 0 0 88 90 0 1 0")
+    apd_pos_float = SVector{3, Float64}[[0.5, 0.7027, 0.6094], [0.8185, 0.5552, 0.6114], [0.316, 0.6986, 0.6073], [0.3185, 0.4448, 0.1114], [0.0, 0.5673, 0.6258], [0.25, 0.4698, 0.25], [0.25, 0.0302, 0.75], [0.316, 0.3014, 0.3927], [0.816, 0.3014, 0.1073], [0.3185, 0.9448, 0.3886], [0.816, 0.1986, 0.6073], [0.5, 0.0673, 0.6258], [0.2366, 0.876, 0.4299], [0.7137, 0.5, 0.0], [0.25, 0.218, 0.75], [0.75, 0.25, 0.0], [0.1815, 0.4448, 0.3886], [0.184, 0.6986, 0.8927], [0.5, 0.2027, 0.8906], [0.8185, 0.0552, 0.8886], [0.75, 0.5302, 0.75], [0.7634, 0.376, 0.0701], [0.8185, 0.4448, 0.3886], [0.0, 0.7027, 0.8906], [0.7634, 0.876, 0.4299], [0.6815, 0.5552, 0.8886], [0.75, 0.782, 0.25], [0.2366, 0.624, 0.9299], [0.816, 0.8014, 0.3927], [0.0, 0.2973, 0.1094], [0.2137, 0.5, 0.5], [0.316, 0.8014, 0.1073], [0.75, 0.75, 0.0], [0.2366, 0.124, 0.5701], [0.2634, 0.376, 0.4299], [0.0, 0.0673, 0.8742], [0.684, 0.8014, 0.1073], [0.6815, 0.9448, 0.3886], [0.75, 0.718, 0.75], [0.6815, 0.0552, 0.6114], [0.25, 0.782, 0.25], [0.5, 0.7973, 0.1094], [0.2366, 0.376, 0.0701], [0.684, 0.6986, 0.6073], [0.0, 0.2027, 0.6094], [0.25, 0.75, 0.5], [0.2634, 0.124, 0.9299], [0.7366, 0.376, 0.4299], [0.0, 0.7973, 0.3906], [0.25, 0.718, 0.75], [0.316, 0.1986, 0.8927], [0.25, 0.25, 0.5], [0.184, 0.3014, 0.1073], [0.25, 0.9698, 0.25], [0.684, 0.1986, 0.8927], [0.7366, 0.876, 0.0701], [0.816, 0.6986, 0.8927], [0.75, 0.25, 0.5], [0.684, 0.3014, 0.3927], [0.2863, 0.5, 0.0], [0.184, 0.1986, 0.6073], [0.5, 0.2973, 0.3906], [0.25, 0.5302, 0.75], [0.2634, 0.876, 0.0701], [0.7137, 0.0, 0.5], [0.6815, 0.4448, 0.1114], [0.75, 0.9698, 0.25], [0.7863, 0.0, 0.0], [0.3185, 0.0552, 0.6114], [0.3185, 0.5552, 0.8886], [0.5, 0.5673, 0.8742], [0.25, 0.75, 0.0], [0.1815, 0.0552, 0.8886], [0.5, 0.4327, 0.1258], [0.25, 0.25, 0.0], [0.25, 0.282, 0.25], [0.184, 0.8014, 0.3927], [0.1815, 0.5552, 0.6114], [0.2634, 0.624, 0.5701], [0.0, 0.9327, 0.1258], [0.7634, 0.124, 0.5701], [0.7366, 0.124, 0.9299], [0.75, 0.4698, 0.25], [0.7366, 0.624, 0.5701], [0.5, 0.9327, 0.3742], [0.75, 0.282, 0.25], [0.2863, 0.0, 0.5], [0.1815, 0.9448, 0.1114], [0.8185, 0.9448, 0.1114], [0.2137, 0.0, 0.0], [0.7634, 0.624, 0.9299], [0.75, 0.218, 0.75], [0.7863, 0.5, 0.5], [0.75, 0.75, 0.5], [0.75, 0.0302, 0.75], [0.0, 0.4327, 0.3742]]
+    apd_pos_float_stacked = reduce(hcat, apd_pos_float)
+    apd_pos_rat64 = [rationalize.(Int64, x) for x in apd_pos_float]
+    apd_pos_rat64_stacked = reduce(hcat, apd_pos_rat64)
+    apd_pos_rat128 = SVector{3,Rational{Int128}}.(apd_pos_rat64)
+    apd_pos_rat128_stacked = reduce(hcat, apd_pos_rat128)
+    apd_pos_ratbig = SVector{3,Rational{BigInt}}.(apd_pos_rat64)
+    apd_pos_ratbig_stacked = reduce(hcat, apd_pos_ratbig)
+    onepos3 = SVector{3, Float64}(1,2,3)
+    onev3 = PeriodicVertex(3, (1,0,-1))
+    hcb_g = PeriodicGraph("2 1 2 -1 0 1 2 0 0 1 2 0 1")
+    hcb_pos_rat64 = SVector{2,Rational{Int64}}[(0,0), (1//3,-1//3)]
+    hcb_pos_rat64_stacked = reduce(hcat, hcb_pos_rat64)
+    hcb_pos_float = SVector{2,Float64}.(hcb_pos_rat64)
+    hcb_pos_float_stacked = reduce(hcat, hcb_pos_float)
+    hcb_pos_rat128 = SVector{2,Rational{Int128}}.(hcb_pos_rat64)
+    hcb_pos_rat128_stacked = reduce(hcat, hcb_pos_rat128)
+    hcb_pos_ratbig = SVector{2,Rational{BigInt}}.(hcb_pos_rat64)
+    hcb_pos_ratbig_stacked = reduce(hcat, hcb_pos_ratbig)
+    onepos2 = SVector{2,Float64}(1,2)
+    onev2 = PeriodicVertex(2, (1,0))
+    t = tempname(; cleanup=false)
+    types = [:Si for _ in 1:length(apd_pos_float)]
+    @precompile_all_calls begin
+        string(parse(EquivalentPosition, " - y; x+0.3, z-x"))
+        parse(EquivalentPosition, "a+c, - a +x, c", ("x","a","c"))(onepos3)
+        PeriodicGraphEmbeddings.find_refid(["X+1/2,-A,Z","+X,+Z,+A"])
+        cell = Cell(144, (7.0, 7.0, 7.0), (90.0, 90.0, 90.0))
+        cell == Cell{Float64}(15, (4.0, 4.0, 4.0), (90.0, 90.0, 90.0))
+        cell_parameters(cell.mat)
+        find_hall_number("i -4 -2")
+
+        for (T, pos) in [(Float64, apd_pos_float),
+                         (Rational{Int64}, apd_pos_rat64),
+                         (Rational{Int128}, apd_pos_rat128),
+                         (Rational{BigInt}, apd_pos_ratbig)]
+            apd = PeriodicGraphEmbedding3D(apd_g, pos)
+            apd_symm = find_symmetries(apd)
+            find_symmetries(apd, types)
+            find_symmetries(apd, zeros(Int, length(apd)))
+            export_vtf(t, apd)
+            export_vtf(t, apd, types)
+            apd_symm(6)
+            apd_symm[3](2)
+            unique(apd_symm)
+            length(apd_symm)
+            one(apd_symm)
+            symm = collect(apd_symm)[2]
+            symm(3)
+            symm(onev3)
+            symm([3//4, 2//3, 1//1])
+            symm(SVector{3,T}(T[1//2, 6//5, -1//10]))
+            symm(T[1 0 0;0 1 0;0 0 1])
+            symm(SMatrix{3,3,T,9}(T[1 0 0;0 1 0;0 0 1]))
+            PeriodicGraphEmbeddings.get_spglib_dataset(apd).rotations
+            PeriodicGraphEmbeddings.get_spglib_dataset(apd, types).hall_symbol
+            RingAttributions(apd.g, apd_symm)
+            RingAttributions(apd.g, true, apd_symm)
+            RingAttributions(apd.g, 6, apd_symm)
+            RingAttributions(apd.g, true, 6, apd_symm)
+        end
+
+        @_precompile_pge 3 apd
+        @_precompile_pge 2 hcb
+    end
+    rm(t*".cgd")
+    rm(t*".vtf")
+end
+

@@ -2,7 +2,7 @@ using Test
 using PeriodicGraphEmbeddings, PeriodicGraphs, Graphs, StaticArrays
 
 using Aqua
-Aqua.test_all(PeriodicGraphs)
+Aqua.test_all(PeriodicGraphEmbeddings)
 
 @testset "EquivalentPosition" begin
     @test PeriodicGraphEmbeddings.find_refid(String[]) == ("x", "y", "z")
@@ -109,7 +109,7 @@ end
 @testset "General symmetries" begin
     mog = PeriodicGraphEmbedding(
         PeriodicGraph3D("3 1 4 0 -1 -1 1 4 0 0 -1 1 5 0 0 0 1 11 -1 0 0 2 3 0 -1 0 2 3 0 0 0 2 5 0 0 0 2 11 -1 0 0 3 6 0 0 0 3 12 -1 0 0 4 6 0 0 0 4 12 -1 0 0 5 7 0 0 0 5 8 0 0 0 6 9 0 0 0 6 10 0 0 0 7 10 0 -1 -1 7 10 0 0 -1 7 11 0 0 0 8 9 0 -1 0 8 9 0 0 0 8 11 0 0 0 9 12 0 0 0 10 12 0 0 0"),
-        SVector{3, Rational{Int32}}[[0//1, 0//1, 0//1], [0//1, 0//1, 1//3], [0//1, 1//2, 1//2], [0//1, 1//2, 5//6], [1//4, 0//1, 1//6], [1//4, 1//2, 2//3], [1//2, 0//1, 0//1], [1//2, 0//1, 1//3], [1//2, 1//2, 1//2], [1//2, 1//2, 5//6], [3//4, 0//1, 1//6], [3//4, 1//2, 2//3]],
+        SVector{3, Rational{Int64}}[[0//1, 0//1, 0//1], [0//1, 0//1, 1//3], [0//1, 1//2, 1//2], [0//1, 1//2, 5//6], [1//4, 0//1, 1//6], [1//4, 1//2, 2//3], [1//2, 0//1, 0//1], [1//2, 0//1, 1//3], [1//2, 1//2, 1//2], [1//2, 1//2, 5//6], [3//4, 0//1, 1//6], [3//4, 1//2, 2//3]],
         Cell(1, (8.7371, 4.8692, 10.7217), (90.0, 90.193, 90.0))
     )
     mogsymms = find_symmetries(mog, nothing, (a,b,c,d) -> check_valid_symmetry(a,b,c,d, true))
@@ -126,7 +126,7 @@ end
     @test 1 == redirect_stderr(devnull) do
                      find_hall_number("-C a 2 m", "abca", 0, true)
                 end
-    
+
     spgdataset = PeriodicGraphEmbeddings.get_spglib_dataset(mog, [mogsymms(i) for i in 1:length(mog)])
     @test spgdataset.hall_symbol == PeriodicGraphEmbeddings.get_spglib_dataset(mog).hall_symbol
 end
