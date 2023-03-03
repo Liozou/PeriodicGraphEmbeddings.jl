@@ -111,30 +111,38 @@ Systre).
 
 If `append` is set, the graph is added at the end of the file.
 """
-function export_cgd(file, pge::PeriodicGraphEmbedding, name=basename(splitext(file)[1]), append=false)
+function export_cgd(file, pge::PeriodicGraphEmbedding{N}, name=basename(splitext(file)[1]), append=false) where N
     endswith(file, ".cgd") || return export_cgd(file*".cgd", pge, name, append)
     mkpath(splitdir(file)[1])
     open(file; write=true, append) do f
         println(f, "CRYSTAL")
         println(f, "  NAME\t", name)
-        ((__a, __b, __c), (__α, __β, __γ)), _ = cell_parameters(pge.cell)
-        _a, _b, _c, _α, _β, _γ = Float64.((__a, __b, __c, __α, __β, __γ))
+        (_lengths, _angles), _ = cell_parameters(pge.cell)
+        lengths = Float64.(_lengths)
+        angles = Float64.(_angles)
         print(f, "  GROUP\t\"")
         print(f, RAW_SYMMETRY_DATA[pge.cell.hall][4])
         println(f, "\"")
-        println(f, "  CELL\t", _a, ' ', _b, ' ', _c, ' ', _α, ' ', _β, ' ', _γ, ' ')
+        print(f, "  CELL\t")
+        join(f, lengths[1:min(3,N)], ' ')
+        print(f, ' ')
+        join(f, angles[1:min(3,N)], ' ')
+        println(f)
         println(f, "  ATOM")
         for i in 1:length(pge.pos)
             pos = pge.pos[i]
-            println(f, "    ", i, ' ', degree(pge.g, i), ' ', pos[1], ' ',
-                    pos[2], ' ', pos[3])
+            print(f, "    ", i, ' ', degree(pge.g, i), ' ')
+            join(f, pos, ' ')
+            println(f)
         end
         println(f, "  EDGE")
         for i in 1:length(pge.pos)
             for e in neighbors(pge.g, i)
                 e.v < i && continue
                 dest = pge.pos[e.v] .+ e.ofs
-                println(f, "    ", i, '\t', dest[1], ' ', dest[2], ' ', dest[3])
+                print(f, "    ", i, '\t')
+                join(f, dest, ' ')
+                println(f)
             end
         end
         println(f, "\nEND")
@@ -142,7 +150,7 @@ function export_cgd(file, pge::PeriodicGraphEmbedding, name=basename(splitext(fi
 end
 
 function export_cgd(file, g::PeriodicGraph, name=basename(splitext(file)[1]), append=false)
-    endswith(file, ".cgd") || return export_cgd(file*".cgd", pge, name, append)
+    endswith(file, ".cgd") || return export_cgd(file*".cgd", g, name, append)
     mkpath(splitdir(file)[1])
     open(file; write=true, append) do f
         println(f, "PERIODIC_GRAPH")

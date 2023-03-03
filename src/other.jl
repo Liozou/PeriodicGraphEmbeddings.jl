@@ -18,8 +18,8 @@ end
 
 function PeriodicGraphs.make_supercell(cell::Cell{T}, t) where T
     newmat = SizedMatrix{3,3,BigFloat,2,Matrix{BigFloat}}(cell.mat)
-    for i in 1:3
-        newmat[:,i] .*= t[i]
+    for (i,ti) in zip(1:3, t)
+        newmat[:,i] .*= ti
     end
     Cell{T}(cell.hall, newmat, cell.equivalents)
 end
