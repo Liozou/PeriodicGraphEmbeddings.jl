@@ -149,6 +149,34 @@ function export_cgd(file, pge::PeriodicGraphEmbedding{N}, name=basename(splitext
     end
 end
 
+function export_cgd_alt(file, pge::PeriodicGraphEmbedding{N}, name=basename(splitext(file)[1]), append=false) where N
+    endswith(file, ".cgd") || return export_cgd(file*".cgd", pge, name, append)
+    mkpath(splitdir(file)[1])
+    open(file; write=true, append) do f
+        println(f, "CRYSTAL")
+        println(f, "  NAME\t", name)
+        (_lengths, _angles), _ = cell_parameters(pge.cell)
+        lengths = Float64.(_lengths)
+        angles = Float64.(_angles)
+        println(f, "  GROUP\tP1")
+        print(f, "  CELL\t")
+        join(f, lengths[1:min(3,N)], ' ')
+        print(f, ' ')
+        join(f, angles[1:min(3,N)], ' ')
+        println(f)
+        for (i, pos) in enumerate(pge.pos)
+            println(f, "  NODE ", i, ' ', degree(pge.g, i), "  ", pos[1], ' ', pos[2], ' ', pos[3])
+        end
+        for (src, dst) in edges(pge.g)
+            possrc = pge[src]
+            posdst = pge[dst]
+            println(f, "  EDGE  ", possrc[1], ' ', possrc[2], ' ', possrc[3], "  ",
+                                   posdst[1], ' ', posdst[2], ' ', posdst[3])
+        end
+        println(f, "END")
+    end
+end
+
 function export_cgd(file, g::PeriodicGraph, name=basename(splitext(file)[1]), append=false)
     endswith(file, ".cgd") || return export_cgd(file*".cgd", g, name, append)
     mkpath(splitdir(file)[1])
