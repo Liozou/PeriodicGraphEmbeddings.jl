@@ -197,14 +197,17 @@ end
 get_symmetry_equivalents(hall) = get_symmetry_equivalents(Rational{Int}, hall)
 
 """
-    get_spglib_dataset(pge::PeriodicGraphEmbedding3D, vtypes=nothing)
+    get_spglib_dataset(pge::PeriodicGraphEmbedding3D, vtypes=nothing; tolerance::Union{Nothing,Cdouble}=nothing)
 
 Wrapper around `spg_get_dataset`.
 
 If `vtypes !== nothing`, ensure that two vertices `x` and `y` cannot be symmetry-related
 if `vtypes[x] != vtypes[y]`.
+
+An explicit tolerance can be set. Otherwise, the default is a loose tolerance if the
+positions are floating points, or a stringent tolerance if they are rationals.
 """
-function get_spglib_dataset(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing) where T
+function get_spglib_dataset(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing; tolerance::Union{Nothing,Cdouble}=nothing) where T
     lattice = Matrix{Cdouble}(adjoint(pge.cell.mat)) # transpose to account for row-major operations
     n = nv(pge.g)
     positions = Matrix{Cdouble}(undef, 3, n)
@@ -221,9 +224,10 @@ function get_spglib_dataset(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing) wh
             j += ((types[i] = get!(vtypes_to_int, vtypes[i], j)) == j)
         end
     end
+    ϵ = tolerance isa Nothing ? T <: Rational ? 100*eps(Cdouble) : 0.01 : tolerance
     ptr = ccall((:spg_get_dataset, libsymspg), Ptr{SpglibDataset},
                 (Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cint}, Cint, Cdouble),
-                lattice, positions, types, n, T <: Rational ? 10*eps(Cdouble) : 0.01)
+                lattice, positions, types, n, ϵ)
     ptr == Ptr{PeriodicGraphEmbeddings.SpglibDataset}() && return nothing # failure
     dataset = unsafe_load(ptr)
     # if dataset.n_atoms != n
@@ -308,7 +312,7 @@ end
 __rattype(::Type{Rational{T}}) where {T}  = T
 
 """
-    find_symmetries(pge::PeriodicGraphEmbedding3D, vtypes=nothing, check_symmetry=check_valid_symmetry)
+    find_symmetries(pge::PeriodicGraphEmbedding3D, vtypes=nothing, check_symmetry=check_valid_symmetry; tolerance::Union{Nothing,Cdouble}=nothing)
 
 Return a [`SymmetryGroup3D`](@ref) object storing the list of symmetry operations on the
 graph embedding.
@@ -320,8 +324,11 @@ if `vtypes[x] != vtypes[y]`.
 `vtypes` as `check_valid_symmetry` and return either `(vmap, offsets)` or `nothing` if the
 input is not a valid symmetry.
 It can be used to specify additional constraints that cannot be carried by `vtypes` alone.
+
+An explicit tolerance can be set. Otherwise, the default is a loose tolerance if the
+positions are floating points, or a stringent tolerance if they are rationals.
 """
-function find_symmetries(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing, check_symmetry=check_valid_symmetry) where T
+function find_symmetries(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing, check_symmetry=check_valid_symmetry; tolerance::Union{Nothing,Cdouble}=nothing) where T
     lattice = Matrix{Cdouble}(LinearAlgebra.I, 3, 3) # positions are expressed in this basis
 
     I = sortperm(pge.pos)
@@ -375,7 +382,7 @@ function find_symmetries(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing, check
         positions[:,i] .= uniquepos[i]
     end
 
-    ϵ = T <: Rational ? 100*eps(Cdouble) : 0.01
+    ϵ = tolerance isa Nothing ? T <: Rational ? 100*eps(Cdouble) : 0.01 : tolerance
     rotations = Array{Cint}(undef, 3, 3, 384)
     translations = Array{Cdouble}(undef, 3, 384)
     len = ccall((:spg_get_symmetry, libsymspg), Cint,
