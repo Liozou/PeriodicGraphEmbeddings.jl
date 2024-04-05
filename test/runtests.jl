@@ -165,4 +165,29 @@ end
             @test Float32.(mat*itn[PeriodicVertex3D(i, p)]) == Float32.(mat312*itn312[factor+i])
         end
     end
+
+    p31pge = PeriodicGraphEmbedding(PeriodicGraph3D(0), SVector{3, Float64}[],
+        Cell(431, (30.0, 30.0, 30.0), (90.0, 90.0, 90.0)) # symmetry group P3₁
+    )
+    @test p31pge.cell.equivalents == parse.(EquivalentPosition, ["-y,x-y,z+1/3", "-x+y,-x,z+2/3"])
+    superp31 = make_supercell(p31pge, (3,1,2))
+    @test superp31.cell.equivalents == parse.(EquivalentPosition, [
+        "-1/3y, 3x-y, z+1/6",
+        "-x+1/3y,-3x,z+1/3",
+        "x+1/3,y,z",
+        "-1/3y+1/3,3x-y,z+1/6",
+        "-x+1/3y+1/3,-3x,z+1/3",
+        "x+2/3,y,z",
+        "-1/3y+2/3,3x-y,z+1/6",
+        "-x+1/3y+2/3,-3x,z+1/3",
+        "x,y,z+1/2",
+        "-1/3y,3x-y,z+2/3",
+        "-x+1/3y,-3x,z+5/6",
+        "x+1/3,y,z+1/2",
+        "-1/3y+1/3,3x-y,z+2/3",
+        "-x+1/3y+1/3,-3x,z+5/6",
+        "x+2/3,y,z+1/2",
+        "-1/3y+2/3,3x-y,z+2/3",
+        "-x+1/3y+2/3,-3x,z+5/6"
+    ]) # copied by hand from the Bilbao Crystallographic Server / GENPOS
 end
