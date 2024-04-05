@@ -28,14 +28,17 @@ julia> eq([1//3, 0, 1//4])
  1//4
  1//2
 ```
+
+The type parameter `T` is the numeric type used to store the symmetry operations.
+It should be typically either `Rational{Int}` or `Float64`.
 """
 struct EquivalentPosition{T}
-    mat::SMatrix{3,3,Int,9}
+    mat::SMatrix{3,3,T,9}
     ofs::SVector{3,T}
 end
 
 (eq::EquivalentPosition)(x) = muladd(eq.mat, x, eq.ofs)
-EquivalentPosition{T}() where T = EquivalentPosition{T}(one(SMatrix{3,3,Int,9}), zero(SVector{3,T}))
+EquivalentPosition{T}() where T = EquivalentPosition{T}(one(SMatrix{3,3,T,9}), zero(SVector{3,T}))
 
 """
     find_refid(eqs)
@@ -77,10 +80,17 @@ function find_refid(eqs)
 end
 
 """
+    Base.parse(::Type{EquivalentPosition{T}}, s::AbstractString, refid=("x", "y", "z")) where T
     Base.parse(::Type{EquivalentPosition}, s::AbstractString, refid=("x", "y", "z"))
 
-Parse a string into its represented [`EquivalentPosition`](@ref) given the name of the
+Parse a string into its represented [`EquivalentPosition{T}`](@ref) given the name of the
 three variables obtained from [`find_refid`](@ref PeriodicGraphEmbeddings.find_refid).
+
+The version with no explicit type parameter `T` returns a `EquivalentPosition{Rational{Int}}`.
+
+!!! warning
+    Multiplicative coefficients must be placed before the variables, with no '*' symbol.
+    Likewise, an operation like `x/2` must be written `1/2x`
 
 ## Example
 ```jldoctest
@@ -88,12 +98,12 @@ julia> parse(EquivalentPosition, "a+0.5; c; -1/3+b", ("a", "b", "c"))
 x+1/2,z,y-1/3
 ```
 """
-function Base.parse(::Type{EquivalentPosition}, s::AbstractString, refid=("x", "y", "z"))
+function Base.parse(::Type{EquivalentPosition{T}}, s::AbstractString, refid=("x", "y", "z")) where T
     const_dict = Dict{String, Int}(refid[1]=>1, refid[2]=>2, refid[3]=>3)
-    mat = zeros(Int, 3, 3)
-    ofs = zeros(Rational{Int}, 3)
+    mat = zeros(T, 3, 3)
+    ofs = zeros(T, 3)
     curr_num::Union{Int, Nothing} = nothing
-    curr_val::Union{Rational{Int}, Nothing} = nothing
+    curr_val::Union{T, Nothing} = nothing
     curr_sign::Union{Bool, Nothing} = nothing
     encountered_div::Bool = false
     i::Int = 1
@@ -102,7 +112,8 @@ function Base.parse(::Type{EquivalentPosition}, s::AbstractString, refid=("x", "
         k === Tokenize.Tokens.WHITESPACE && continue
         if k === Tokenize.Tokens.INTEGER
             if encountered_div
-                curr_val = Rational{Int}(Int(curr_num), parse(Int, x.val))
+                parsedxi = parse(Int, x.val)
+                curr_val = T <: Rational ? T(curr_num::Int, parsedxi) : T((curr_num::Int)/parsedxi)
                 curr_num = nothing
                 encountered_div = false
             else
@@ -115,7 +126,7 @@ function Base.parse(::Type{EquivalentPosition}, s::AbstractString, refid=("x", "
                     curr_num = nothing
                 end
                 sign = isnothing(curr_sign) ? 1 : 2*curr_sign - 1
-                val = isnothing(curr_val)  ? 1//1 : curr_val
+                val = isnothing(curr_val)  ? one(T) : curr_val
                 j = const_dict[Tokenize.Tokens.untokenize(x)]
                 mat[i,j] += sign * val
                 curr_val = nothing
@@ -126,7 +137,8 @@ function Base.parse(::Type{EquivalentPosition}, s::AbstractString, refid=("x", "
                     continue
                 end
                 if x.kind === Tokenize.Tokens.FLOAT
-                    curr_val = Rational{Int}(rationalize(Int8, parse(Float16, x.val)))
+                    parsedxf = parse(T<:Base.IEEEFloat ? T : Float16, x.val)
+                    curr_val = T<:Rational ? T(rationalize(Int8, parsedxf)) : T(parsedxf)
                     continue
                 end
                 if !isnothing(curr_num)
@@ -135,7 +147,7 @@ function Base.parse(::Type{EquivalentPosition}, s::AbstractString, refid=("x", "
                 end
                 if !isnothing(curr_val)
                     sign = isnothing(curr_sign) ? 1 : 2*curr_sign - 1
-                    ofs[i] += sign * Rational{Int}(curr_val)
+                    ofs[i] += sign * (curr_val::T)
                     curr_val = nothing
                     curr_sign = nothing
                 end
@@ -153,7 +165,10 @@ function Base.parse(::Type{EquivalentPosition}, s::AbstractString, refid=("x", "
             end
         end
     end
-    EquivalentPosition{Rational{Int}}(SMatrix{3,3,Int,9}(mat), SVector{3,Rational{Int}}(ofs))
+    EquivalentPosition{T}(SMatrix{3,3,T,9}(mat), SVector{3,T}(ofs))
+end
+function Base.parse(::Type{EquivalentPosition}, s::AbstractString, refid=("x", "y", "z"))
+    parse(EquivalentPosition{Rational{Int}}, s, refid)
 end
 
 function __tostring(x::T, notofs::Bool, first::Bool) where T

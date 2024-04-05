@@ -170,20 +170,21 @@ end
 
 
 """
-    get_symmetry_equivalents([T=Rational{Int},] hall)
+    get_symmetry_equivalents([T=Rational{Int},] hall::Integer)
 
 The list of `EquivalentPosition{T}` corresponding to a symmetry group given by its Hall number.
 
 Wrapper around `spg_get_symmetry_from_database`.
 """
-function get_symmetry_equivalents(T, hall)
+function get_symmetry_equivalents(T, hall::Integer)
+    1 ≤ hall ≤ 530 || error("Unknown hall number: $hall. Should be between 1 and 530.")
     rotations = Array{Cint}(undef, 3, 3, 192)
     translations = Array{Cdouble}(undef, 3, 192)
     len = ccall((:spg_get_symmetry_from_database, libsymspg), Cint,
                 (Ptr{Cint}, Ptr{Cdouble}, Cint), rotations, translations, hall)
     eqs = EquivalentPosition{T}[]
     for i in 1:len
-        rot = SMatrix{3,3,Int,9}(transpose(@view rotations[:,:,i]))
+        rot = SMatrix{3,3,T,9}(transpose(@view rotations[:,:,i]))
         if T <: Rational
             tr = SVector{3,Cdouble}(@view translations[:,i])
             trans = SVector{3,T}(round.(Int, 360 .* tr) .// 360)
@@ -392,7 +393,7 @@ function find_symmetries(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing, check
         den = lcm(len, den)
     end
     # The first symmetry should always be the identity, which we can skip
-    rots = SMatrix{3,3,Int,9}[]
+    rots = SMatrix{3,3,T,9}[]
     transs = SVector{3,T}[]
     vmaps = Vector{PeriodicVertex3D}[]
     floatpos = [float(x) for x in pge.pos]
@@ -411,7 +412,7 @@ function find_symmetries(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing, check
         #     error("The periodic graph is not minimal") # TODO: update pge?
         # end
         hasmirror |= det(rot) < 0
-        push!(rots, rot)
+        push!(rots, SMatrix{3,3,T,9}(rot))
         push!(vmaps, vmap::Vector{PeriodicVertex3D})
         push!(transs, trans)
     end
