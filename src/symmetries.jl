@@ -5,7 +5,8 @@ include("symmetry_groups.jl")
 export find_hall_number,
        get_symmetry_equivalents,
        check_valid_symmetry,
-       find_symmetries
+       find_symmetries,
+       retrieve_symmetries
 
 import spglib_jll: libsymspg
 import LinearAlgebra
@@ -238,6 +239,51 @@ function get_spglib_dataset(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing; to
 end
 
 
+function _find_closest_point_after_symop(pge::PeriodicGraphEmbedding{D,T}, t::SVector{D,T}, r, curr_pos, k::Int) where {D,T}
+    transl = (isnothing(r) ? curr_pos : (r * curr_pos)) .+ t
+    ofs = floor.(Int, transl)
+    x = transl .- ofs
+    i, j = x < curr_pos ? (1, k) : (k, length(pge.pos)+1)
+    while j - i > 1
+        m = (j+i)>>1
+        if cmp(x, pge.pos[m]) < 0
+            j = m
+        else
+            i = m
+        end
+    end
+    i -= i > length(pge.pos)
+    pge.pos[i] == x || return PeriodicVertex{D}(0)
+    return PeriodicVertex(i, ofs)
+end
+
+function _find_closest_point_after_symop(pge::PeriodicGraphEmbedding{D,T}, t::SVector{D,T}, r, curr_pos, rest::Tuple) where {D,T}
+    transl = (isnothing(r) ? curr_pos : (r * curr_pos)) .+ t
+    ofs = floor.(Int, transl)
+    x = transl .- ofs
+    if T <: Rational
+        notencountered, buffer = rest
+    else
+        notencountered, buffer, mat, ortho, safemin = rest
+    end
+    i = notencountered isa Int ? 1 : findfirst(notencountered)
+    j = notencountered isa Int ? 2 : findnext(notencountered, i+1)
+    buffer .= pge.pos[i] .- x
+    mindist = T <: Rational ? norm(pge.pos[i] .- x) : periodic_distance!(buffer, mat, ortho, safemin)
+    while notencountered isa Int ? j ≤ notencountered : j isa Int
+        buffer .= pge.pos[j] .- x
+        newdist = T <: Rational ? norm(buffer) : periodic_distance!(buffer, mat, ortho, safemin)
+        if newdist < mindist
+            mindist = newdist
+            i = j
+        end
+        j = notencountered isa Int ? j+1 : findnext(notencountered, j+1)
+    end
+    (T <: Rational ? pge.pos[i] == x : isapprox(mindist, 0.0; atol=0.05)) || return PeriodicVertex{D}(0)
+    notencountered isa Int || (notencountered[i] = false)
+    return PeriodicVertex(i, ofs)
+end
+
 """
     check_valid_symmetry(pge::PeriodicGraphEmbedding{D,T}, t::SVector{D,T}, r=nothing, vtypes=nothing, issorted=false)
 
@@ -259,52 +305,43 @@ function check_valid_symmetry(pge::PeriodicGraphEmbedding{D,T}, t::SVector{D,T},
     if !dichotomy
         notencountered = trues(n)
         buffer = MVector{D,Float64}(undef)
-        if !(T <: Rational)
+        if T <: Rational
+            rest = (notencountered, buffer)
+        else
             mat = Float64.(pge.cell.mat)
             _, ortho, safemin = prepare_periodic_distance_computations(mat)
+            rest = (notencountered, buffer, mat, ortho, safemin)
         end
     end
     for k in 1:n
         curr_pos = pge.pos[k]
-        transl = (isnothing(r) ? curr_pos : (r * curr_pos)) .+ t
-        ofs = floor.(Int, transl)
-        x = transl .- ofs
-        if dichotomy
-            i, j = x < curr_pos ? (1, k) : (k, length(pge.pos)+1)
-            while j - i > 1
-                m = (j+i)>>1
-                if cmp(x, pge.pos[m]) < 0
-                    j = m
-                else
-                    i = m
-                end
-            end
-            i -= i > length(pge.pos)
-            pge.pos[i] == x || return nothing
+        i, ofs = if dichotomy
+            _find_closest_point_after_symop(pge, t, r, curr_pos, k)
         else
-            i::Int = findfirst(notencountered)
-            _j = findnext(notencountered, i+1)
-            buffer .= pge.pos[i] .- x
-            mindist = T <: Rational ? norm(pge.pos[i] .- x) : periodic_distance!(buffer, mat, ortho, safemin)
-            while _j isa Int
-                buffer .= pge.pos[_j] .- x
-                newdist = T <: Rational ? norm(buffer) : periodic_distance!(buffer, mat, ortho, safemin)
-                if newdist < mindist
-                    mindist = newdist
-                    i = _j
-                end
-                _j = findnext(notencountered, _j+1)
-            end
-            (T <: Rational ? pge.pos[i] == x : isapprox(mindist, 0.0; atol=0.05)) || return nothing
-            notencountered[i] = false
+            _find_closest_point_after_symop(pge, t, r, curr_pos, rest)
         end
+        i == 0 && return nothing
         vtypes === nothing || vtypes[i] == vtypes[k] || return nothing
         vmap[k] = PeriodicVertex{D}(i, ofs)
+    end
+    if !dichotomy
+        rest2 = (n, Base.tail(rest)...)
     end
     for e in edges(pge.g)
         src = vmap[e.src]
         dst = vmap[e.dst.v]
-        newofs = (isnothing(r) ? e.dst.ofs : r * e.dst.ofs) .+ dst.ofs .- src.ofs
+        rofs = isnothing(r) ? e.dst.ofs : r * e.dst.ofs
+        if all(T <: Rational ? isinteger : (x -> abs(x - round(x)) < 1e-12), rofs)
+            newofs = round.(Int, rofs) .+ dst.ofs .- src.ofs
+        else
+            curr_pos2 = pge.pos[e.dst.v] .+ e.dst.ofs
+            dst = if dichotomy
+                _find_closest_point_after_symop(pge, t, r, curr_pos2)
+            else
+                _find_closest_point_after_symop(pge, t, r, curr_pos2, rest2)
+            end
+            newofs = dst.ofs .- src.ofs
+        end
         has_edge(pge.g, PeriodicGraphs.unsafe_edge{D}(src.v, dst.v, newofs)) || return nothing
     end
     return vmap
@@ -316,7 +353,8 @@ __rattype(::Type{Rational{T}}) where {T}  = T
     find_symmetries(pge::PeriodicGraphEmbedding3D, vtypes=nothing, check_symmetry=check_valid_symmetry; tolerance::Union{Nothing,Cdouble}=nothing)
 
 Return a [`SymmetryGroup3D`](@ref) object storing the list of symmetry operations on the
-graph embedding.
+graph embedding, found using spglib. Use [`retrieve_symmetries`](@ref) to simply extract
+the symmetries already specified in the [`Cell`](@ref) of the graph embedding.
 
 If `vtypes !== nothing`, ensure that two vertices `x` and `y` cannot be symmetry-related
 if `vtypes[x] != vtypes[y]`.
@@ -386,37 +424,64 @@ function find_symmetries(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing, check
     ϵ = tolerance isa Nothing ? T <: Rational ? 100*eps(Cdouble) : 0.01 : tolerance
     rotations = Array{Cint}(undef, 3, 3, 384)
     translations = Array{Cdouble}(undef, 3, 384)
-    len = ccall((:spg_get_symmetry, libsymspg), Cint,
+    len = max(1, ccall((:spg_get_symmetry, libsymspg), Cint,
             (Ptr{Cint}, Ptr{Cdouble}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cint}, Cint, Cdouble),
-            rotations, translations, 384, lattice, positions, types, n, ϵ)
+            rotations, translations, 384, lattice, positions, types, n, ϵ))
     if T <: Rational
         den = lcm(len, den)
     end
     # The first symmetry should always be the identity, which we can skip
-    rots = SMatrix{3,3,T,9}[]
-    transs = SVector{3,T}[]
+    eqs = Vector{EquivalentPosition{T}}(undef, len-1)
+    for i in 2:len
+        rot = SMatrix{3,3,T,9}(transpose(rotations[:,:,i]))
+        tr = SVector{3,Cdouble}(translations[:,i])
+        trans = T <: Rational ? SVector{3,T}(round.(__rattype(T), den .* tr) .// den) : SVector{3,T}(tr)
+        eqs[i-1] = EquivalentPosition{T}(rot, trans)
+    end
+    return first(retrieve_symmetries(pge, eqs, vtypes, check_symmetry))
+end
+
+"""
+    retrieve_symmetries(pge::PeriodicGraphEmbedding3D{T}, eqs::AbstractVector{S}=pge.cell.equivalents, vtypes=nothing, check_symmetry=check_valid_symmetry) where {T,S}
+
+Return a `(symgroup, discarded)` where `symgroup` is a [`SymmetryGroup3D`](@ref) which
+stores the list of symmetry operations on the graph embedding.
+These symmetry operations are taken from the list of [`EquivalentPosition`](@ref) `eqs`,
+defaulting to those specified in the [`Cell`](@ref) of the graph embedding.
+`discarded` is the list of indices `i` such that the operation `eqs[i]` could not be mapped
+to an actual symetry of the periodic graph, and was thus discarded.
+
+See [`find_symmetries`](@ref) to automatically determine the symmetries, and for the
+definition of the `vtypes` and `check_symmetry` arguments.
+"""
+function retrieve_symmetries(pge::PeriodicGraphEmbedding3D{T}, eqs::AbstractVector{S}=pge.cell.equivalents, vtypes=nothing, check_symmetry=check_valid_symmetry) where {T,S}
     vmaps = Vector{PeriodicVertex3D}[]
     floatpos = [float(x) for x in pge.pos]
     hasmirror = false # whether a mirror plane exists or not. If so, the graph is achiral
-    for i in 2:len
-        rot = SMatrix{3,3,Cint,9}(transpose(rotations[:,:,i]))
-        tr = SVector{3,Cdouble}(translations[:,i])
-        trans = T <: Rational ? SVector{3,T}(round.(__rattype(T), den .* tr) .// den) : SVector{3,T}(tr)
-        vmap = check_symmetry(pge, trans, rot, vtypes)
+    discarded = Int[]
+    _U = promote_type(T,S)
+    U = isconcretetype(_U) ? U : T
+    pgeU = U == T ? pge : PeriodicGraphEmbedding3D{U}(pge.g, SVector{3,U}.(pge.pos), pge.cell)
+    for (i, eq) in enumerate(eqs)
+        rot = U.(eq.mat)
+        tr = U.(eq.ofs)
+        vmap = check_symmetry(pgeU, tr, rot, vtypes)
         if isnothing(vmap)
-            trans = SVector{3,T}(pge.pos[last(findmin([norm(x .- tr) for x in floatpos]))])
+            trans = SVector{3,U}(pge.pos[last(findmin([norm(x .- tr) for x in floatpos]))])
             vmap = check_symmetry(pge, trans, rot, vtypes)
-            isnothing(vmap) && continue
+            if isnothing(vmap)
+                push!(discarded, i)
+                continue
+            end
         end
         # if rot == LinearAlgebra.I
         #     error("The periodic graph is not minimal") # TODO: update pge?
         # end
-        hasmirror |= det(rot) < 0
-        push!(rots, SMatrix{3,3,T,9}(rot))
+        hasmirror |= det(eq.mat) < 0
         push!(vmaps, vmap::Vector{PeriodicVertex3D})
-        push!(transs, trans)
     end
-    return SymmetryGroup3D{T}(vmaps, rots, transs, hasmirror, length(pge.pos))
+    neweqs = isempty(discarded) ? eqs : deleteat!(copy(eqs), discarded)
+    SymmetryGroup3D(vmaps, neweqs, hasmirror, length(pge.pos)), discarded
 end
 
 function identify_symmetry(x::SymmetryGroup3D)
@@ -430,6 +495,7 @@ function identify_symmetry(x::SymmetryGroup3D)
         rotations[:,:,i+1] .= transpose(eq.mat)
         translations[:,i+1] .= eq.ofs
     end
-    return ccall((:spg_get_hall_number_from_symmetry, libsymspg), Cint,
-                 (Ptr{Cint}, Ptr{Cdouble}, Cint, Cdouble), rotations, translations, n, 1e-7)
+    return ccall((:spg_get_spacegroup_type_from_symmetry, libsymspg), Cint,
+                 (Ptr{Cint}, Ptr{Cdouble}, Cint, NTuple{9,Cdouble}, Cdouble),
+                 rotations, translations, n, (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0), 1e-7)
 end
