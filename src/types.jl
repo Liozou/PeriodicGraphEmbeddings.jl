@@ -40,6 +40,14 @@ end
 (eq::EquivalentPosition)(x) = muladd(eq.mat, x, eq.ofs)
 EquivalentPosition{T}() where T = EquivalentPosition{T}(one(SMatrix{3,3,T,9}), zero(SVector{3,T}))
 
+function EquivalentPosition(mat::AbstractMatrix{T}, ofs::AbstractVector{U}) where {T,U}
+    S = promote_type(T,U)
+    EquivalentPosition{S}(SMatrix{3,3,S,9}(mat), SVector{3,S}(ofs))
+end
+function EquivalentPosition{T}(eq::EquivalentPosition{S}) where {S,T}
+    EquivalentPosition{T}(SMatrix{3,3,T,9}(eq.mat), SVector{3,T}(eq.ofs))
+end
+
 """
     find_refid(eqs)
 
