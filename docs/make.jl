@@ -2,7 +2,8 @@ using Documenter
 using PeriodicGraphEmbeddings, PeriodicGraphs, Graphs
 
 DocMeta.setdocmeta!(PeriodicGraphEmbeddings, :DocTestSetup, quote
-    using PeriodicGraphEmbeddings, PeriodicGraphs, Graphs
+    using PeriodicGraphEmbeddings, PeriodicGraphs, Graphs, StaticArrays
+    using LinearAlgebra
 end; recursive=true)
 
 makedocs(

@@ -264,15 +264,23 @@ function _find_closest_point_after_symop(pge::PeriodicGraphEmbedding{D,T}, t::SV
     if T <: Rational
         notencountered, buffer = rest
     else
-        notencountered, buffer, mat, ortho, safemin = rest
+        notencountered, pd2 = rest
     end
     i = notencountered isa Int ? 1 : findfirst(notencountered)
     j = notencountered isa Int ? 2 : findnext(notencountered, i+1)
-    buffer .= pge.pos[i] .- x
-    mindist = T <: Rational ? norm(pge.pos[i] .- x) : periodic_distance!(buffer, mat, ortho, safemin)
+    mindist = if T <: Rational
+        buffer .= pge.pos[i] .- x
+        norm(buffer)
+    else
+        pd2(pge.pos[i], x)
+    end
     while notencountered isa Int ? j ≤ notencountered : j isa Int
-        buffer .= pge.pos[j] .- x
-        newdist = T <: Rational ? norm(buffer) : periodic_distance!(buffer, mat, ortho, safemin)
+        newdist = if T <: Rational
+            buffer .= pge.pos[j] .- x
+            norm(buffer)
+        else
+            pd2(pge.pos[j], x)
+        end
         if newdist < mindist
             mindist = newdist
             i = j
@@ -308,9 +316,7 @@ function check_valid_symmetry(pge::PeriodicGraphEmbedding{D,T}, t::SVector{D,T},
         if T <: Rational
             rest = (notencountered, buffer)
         else
-            mat = Float64.(pge.cell.mat)
-            _, ortho, safemin = prepare_periodic_distance_computations(mat)
-            rest = (notencountered, buffer, mat, ortho, safemin)
+            rest = (notencountered, PeriodicDistance2(Float64.(pge.cell.mat)))
         end
     end
     for k in 1:n
