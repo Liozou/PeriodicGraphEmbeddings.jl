@@ -119,7 +119,7 @@ end
     @test one(mogsymms) ∉ mogsymms
     @test length(one(mogsymms).vmap) == length(first(mogsymms).vmap) == length(mog)
 
-    @test find_hall_number("-C 2 2") == find_hall_number("Cmmm") == find_hall_number("C m m m")
+    @test find_hall_number("-C 2 2") == find_hall_number("Cmmm") == find_hall_number("C m m m") == 310
     @test 1 != find_hall_number("C 2 2 -1bc", "ccca") != find_hall_number("C 2 2 -1bc", "cccb") != 1
     @test 1 != find_hall_number("a 2 2 -1ac", "a c a a") != find_hall_number("a b a a") != 1
     @test 1 != find_hall_number("b 2 2 -1bc") != find_hall_number("b 2 2 -1bc", "bbab") != 1
@@ -130,7 +130,8 @@ end
 
     spgdataset = PGE.get_spglib_dataset(mog, [mogsymms(i) for i in 1:length(mog)])
     @test spgdataset.hall_symbol == PGE.get_spglib_dataset(mog).hall_symbol
-    @test 
+    cmmm = get_spacegroup_type(310)
+    @test cmmm.hall_symbol == "-C 2 2" && cmmm.international_short == "Cmmm" && cmmm.international == "C m m m"
 end
 
 @testset "Complex modifications" begin

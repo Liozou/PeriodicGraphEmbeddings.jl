@@ -4,6 +4,7 @@ include("symmetry_groups.jl")
 
 export find_hall_number,
        get_symmetry_equivalents,
+       get_spacegroup_type,
        check_valid_symmetry,
        find_symmetries,
        retrieve_symmetries
@@ -103,7 +104,68 @@ function Base.getproperty(ds::SpglibDataset, name::Symbol)
         getfield(ds, name)
     end
 end
+function Base.propertynames(::SpglibDataset, private::Bool=false)
+    ret = map(x -> (s = String(x); s[1] == '_' ? Symbol(@view s[2:end]) : x), fieldnames(SpglibDataset))
+    if private
+        (ret..., filter(x -> String(x)[1] == '_', fieldnames(SpglibDataset))...)
+    else
+        ret
+    end
+end
 
+"""
+    SpglibSpacegroup
+
+Wrapper around the `SpglibSpacegroup` type exported by spglib.
+Its accessible fields are the same as in the C counterpart, except that strings are already
+converted to `String`.
+
+To access the raw pointers without conversion, prepend an underscore to the field: for
+example `dataset._schoenflies` yields a `NTuple{7,Cchar}` where `dataset.schoenflies` is a
+`String`.
+"""
+mutable struct SpglibSpacegroup
+    spacegroup_number::Cint
+    _international_short::NTuple{11,Cchar}
+    _international_full::NTuple{20,Cchar}
+    _international::NTuple{32,Cchar}
+    _schoenflies::NTuple{7,Cchar}
+    hall_number::Cint
+    _hall_symbol::NTuple{17,Cchar}
+    _choice::NTuple{6,Cchar}
+    _pointgroup_international::NTuple{6,Cchar}
+    _pointgroup_schoenflies::NTuple{4,Cchar}
+    arithmetic_crystal_class_number::Cint
+    _arithmetic_crystal_class_symbol::NTuple{7,Cchar}
+end
+
+function Base.getproperty(sg::SpglibSpacegroup, name::Symbol)
+    if name === :hall_number || name === :spacegroup_number || name === :arithmetic_crystal_class_number
+        getfield(sg, name)::Cint
+    else
+        joinletters(getfield(sg, Symbol(:_, name)))::String
+    end
+end
+function Base.propertynames(::SpglibSpacegroup, private::Bool=false)
+    ret = map(x -> (s = String(x); s[1] == '_' ? Symbol(@view s[2:end]) : x), fieldnames(SpglibSpacegroup))
+    if private
+        (ret..., filter(x -> String(x)[1] == '_', fieldnames(SpglibSpacegroup))...)
+    else
+        ret
+    end
+end
+
+
+"""
+    get_spacegroup_type(hall::Integer)
+
+The [`SpglibSpacegroup`](@ref) corresponding to the given `hall` number.
+
+Wrapper around `spg_get_spacegroup_type`.
+"""
+function get_spacegroup_type(hall::Integer)
+    @ccall libsymspg.spg_get_spacegroup_type(hall::Cint)::SpglibSpacegroup
+end
 
 """
     find_hall_number(hallsymbol::AbstractString, hm::AbstractString=hallsymbol, it::Integer=0, warnonnotfound=false)
@@ -230,7 +292,7 @@ function get_spglib_dataset(pge::PeriodicGraphEmbedding3D{T}, vtypes=nothing; to
     ptr = ccall((:spg_get_dataset, libsymspg), Ptr{SpglibDataset},
                 (Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cint}, Cint, Cdouble),
                 lattice, positions, types, n, ϵ)
-    ptr == Ptr{PeriodicGraphEmbeddings.SpglibDataset}() && return nothing # failure
+    ptr == Ptr{SpglibDataset}() && return nothing # failure
     dataset = unsafe_load(ptr)
     # if dataset.n_atoms != n
     #     error("The periodic graph is not minimal") # TODO: update pge?
