@@ -121,7 +121,7 @@ function export_cgd(file, pge::PeriodicGraphEmbedding{N}, name=basename(splitext
         lengths = Float64.(_lengths)
         angles = Float64.(_angles)
         print(f, "  GROUP\t\"")
-        print(f, RAW_SYMMETRY_DATA[pge.cell.hall][4])
+        print(f, replace(get_spacegroup_type(pge.cell.hall).international, ' '=>"", '_'=>""))
         println(f, "\"")
         print(f, "  CELL\t")
         join(f, lengths[1:min(3,N)], ' ')

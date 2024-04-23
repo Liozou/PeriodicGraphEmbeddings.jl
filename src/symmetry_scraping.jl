@@ -137,6 +137,19 @@ function export_space_group_table(space_groups=collect_table_seto(),
     end
 end
 
+function raw_data_spglib(f)
+    println(f, "const RAW_DATA = Tuple{Int,Int,String,String,String,String}[")
+    for i in 1:530
+        sp = get_spacegroup_type(i)
+        println("    (", i, ", ", sp.spacegroup_number,
+                            ", ", repr(sp.hall_symbol),
+                            ", ", repr(replace(sp.international, ' '=>"", '_'=>"")),
+                            ", ", repr(replace(sp.international_full, ' '=>"", '_'=>"")),
+                            ", \"", PGE.RAW_SYMMETRY_DATA[i][end], "\"),")
+    end
+    println(f, "]")
+end
+
 
 
 @static if abspath(PROGRAM_FILE) == @__FILE__
