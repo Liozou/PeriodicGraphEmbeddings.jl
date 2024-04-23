@@ -1,6 +1,10 @@
 export PeriodicDistance2
 using LinearAlgebra: mul!
 
+@static if VERSION < v"1.7-"
+    Base.replace(x::String, p1::Pair, p2::Pair...) = replace(replace(x, p1), p2...)
+end
+
 @static if VERSION < v"1.8-"
     # copy-pasted from the implementation of @lazy_str in Base
     macro lazy_str(text)
