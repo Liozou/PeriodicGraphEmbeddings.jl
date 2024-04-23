@@ -1,14 +1,15 @@
 using Test
 using PeriodicGraphEmbeddings, PeriodicGraphs, Graphs, StaticArrays
+using PeriodicGraphEmbeddings: PeriodicGraphEmbeddings as PGE
 
 using Aqua
 Aqua.test_all(PeriodicGraphEmbeddings)
 
 @testset "EquivalentPosition" begin
-    @test PeriodicGraphEmbeddings.find_refid(String[]) == ("x", "y", "z")
-    @test PeriodicGraphEmbeddings.find_refid(["X+1/2,-A,Z","+X,+Z,+A"]) == ("x", "z", "a")
-    @test_throws ErrorException PeriodicGraphEmbeddings.find_refid(["a,b"])
-    @test_throws ErrorException PeriodicGraphEmbeddings.find_refid(["x,y,z,t"])
+    @test PGE.find_refid(String[]) == ("x", "y", "z")
+    @test PGE.find_refid(["X+1/2,-A,Z","+X,+Z,+A"]) == ("x", "z", "a")
+    @test_throws ErrorException PGE.find_refid(["a,b"])
+    @test_throws ErrorException PGE.find_refid(["x,y,z,t"])
     @test string(parse(EquivalentPosition, " - y; x+0.3, z-x")) == "-y,x+3/10,-x+z"
     @test string(parse(EquivalentPosition, "12/6, x+y- 1z ,1-0z")) == "2,x+y-z,1"
     @test string(parse(EquivalentPosition, "a+c, - a +x, c", ("x","a","c"))) == "y+z,x-y,z"
@@ -90,8 +91,8 @@ end
     @test symm3D(1) == symm3D(2) != symm3D(3)
     @test unique(symm3D) == [1, 3]
     allsymm3D = collect(symm3D)
-    @test allsymm3D == PeriodicGraphEmbeddings.PeriodicSymmetry3D{Rational{Int}}[symm3D[1], symm3D[2], symm3D[3]]
-    @test one(symm3D) isa PeriodicGraphEmbeddings.PeriodicSymmetry3D{Rational{Int}}
+    @test allsymm3D == PGE.PeriodicSymmetry3D{Rational{Int}}[symm3D[1], symm3D[2], symm3D[3]]
+    @test one(symm3D) isa PGE.PeriodicSymmetry3D{Rational{Int}}
     @test one(symm3D) ∉ allsymm3D
     for symm in symm3D
         @test symm(3) == 3
@@ -122,13 +123,14 @@ end
     @test 1 != find_hall_number("C 2 2 -1bc", "ccca") != find_hall_number("C 2 2 -1bc", "cccb") != 1
     @test 1 != find_hall_number("a 2 2 -1ac", "a c a a") != find_hall_number("a b a a") != 1
     @test 1 != find_hall_number("b 2 2 -1bc") != find_hall_number("b 2 2 -1bc", "bbab") != 1
-    @test PeriodicGraphEmbeddings.RAW_SYMMETRY_DATA[find_hall_number("", "", 127)][2] == 127
+    @test PGE.RAW_SYMMETRY_DATA[find_hall_number("", "", 127)][2] == 127
     @test 1 == redirect_stderr(devnull) do
                      find_hall_number("-C a 2 m", "abca", 0, true)
                 end
 
-    spgdataset = PeriodicGraphEmbeddings.get_spglib_dataset(mog, [mogsymms(i) for i in 1:length(mog)])
-    @test spgdataset.hall_symbol == PeriodicGraphEmbeddings.get_spglib_dataset(mog).hall_symbol
+    spgdataset = PGE.get_spglib_dataset(mog, [mogsymms(i) for i in 1:length(mog)])
+    @test spgdataset.hall_symbol == PGE.get_spglib_dataset(mog).hall_symbol
+    @test 
 end
 
 @testset "Complex modifications" begin
