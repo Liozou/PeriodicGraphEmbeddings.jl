@@ -256,7 +256,7 @@ function get_symmetry_equivalents(T, hall::Integer)
             push!(eqs, EquivalentPosition(rot, SVector{3,T}(@view translations[:,i])))
         end
     end
-    return eqs
+    eqs
 end
 get_symmetry_equivalents(hall) = get_symmetry_equivalents(Rational{Int}, hall)
 
