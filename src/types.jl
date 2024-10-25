@@ -583,6 +583,17 @@ end
 
 Store the information on the symmetry operations available on a
 [`PeriodicGraphEmbedding3D`](@ref).
+
+`T` is the numeric type parameter of each individual [`PeriodicSymmetry3D`](@ref), which
+can be obtained by iterating over the `SymmetryGroup3D`.
+For example, if `symms` is a `SymmetryGroup3D{Rational{Int}}`, then `first(symms)` will be
+a `PeriodicSymmetry3D{Rational{Int64}}`. `collect(symms)` gives the full list of symmetries
+stored in the `SymmetryGroup3D`.
+
+The list of the symmetrically-unique vertices of the `PeriodicGraphEmbedding3D` can be
+retrieved by calling `unique(symms)`.
+The mapping between any vertex `i` and its corresponding unique vertex can be obtained by
+calling `symms` itself with the vertex, like `symms(i)`.
 """
 struct SymmetryGroup3D{T} <: PeriodicGraphs.AbstractSymmetryGroup{PeriodicSymmetry3D{T}}
     vmaps::Matrix{PeriodicVertex3D}
@@ -609,16 +620,15 @@ function SymmetryGroup3D(vmaps_list, eqs::Vector{EquivalentPosition{T}}, hasmirr
     m = length(eqs)
     keepuniques = trues(n)
     vmaps = Matrix{PeriodicVertex3D}(undef, n, m)
-    for i in 1:m
-        listi = vmaps_list[i]
-        vmaps[:,i] .= vmaps_list[i]
+    for (i, listi) in enumerate(vmaps_list)
+        vmaps[:,i] .= listi
         for j in 2:n
             keepuniques[j] &= listi[j].v ≥ j
         end
     end
     uniques = (1:n)[keepuniques]
-    uniquemap = Vector{Int}(undef, n)
-    for (k,j) in enumerate(uniques)
+    uniquemap = zeros(Int, n) # 0 to detect errors
+    for (k, j) in enumerate(uniques)
         uniquemap[j] = k
     end
     undetermined = [i for i in 2:n if !keepuniques[i]]
@@ -636,6 +646,7 @@ function SymmetryGroup3D(vmaps_list, eqs::Vector{EquivalentPosition{T}}, hasmirr
         isempty(undeterminedmask) && break
         undetermined = undetermined[undeterminedmask]
     end
+    any(iszero, uniquemap) && error("Invalid list of symmetries fed to SymmetryGroup3D")
     return SymmetryGroup3D{T}(vmaps, eqs, uniquemap, uniques, hasmirror)
 end
 

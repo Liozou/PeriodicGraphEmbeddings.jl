@@ -93,16 +93,21 @@ end
 Base.show(io::IO, pd2::PeriodicDistance2) = println(io, PeriodicDistance2, '(', pd2.mat, ')')
 
 """
-    PeriodicDistance2(mat::AbstractMatrix)
+    PeriodicDistance2(mat::AbstractMatrix{T}) where T
 
 Build a [`PeriodicDistance2`](@ref) object which can be called to compute squared periodic
 distances in a unit cell of given matrix `mat`.
+
+!!! warning
+    The `eltype` `T` of `mat` must be `isbitstype`, otherwise construction will fail.
+    Convert your input to an appropriate type if need be.
 
 !!! warning
     It is assumed that the unit cell is in standard settings: its angles must be above 60°
     or the returned distance may not be the shortest.
 """
 function PeriodicDistance2(mat::AbstractMatrix{T}) where {T}
+    isbitstype(T) || error("PeriodicDistance2 only accepts an input matrix with isbits elements")
     smat = SMatrix{3,3,T,9}(mat)
     (a, b, c), (α, β, γ) = cell_parameters(smat)
     ortho = all(x -> isapprox(Float16(x), 90; rtol=0.02), (α, β, γ))

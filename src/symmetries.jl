@@ -321,8 +321,8 @@ end
 
 function _find_closest_point_after_symop(pge::PeriodicGraphEmbedding{D,T}, t::SVector{D,T}, r, curr_pos, rest::Tuple) where {D,T}
     transl = (isnothing(r) ? curr_pos : (r * curr_pos)) .+ t
-    ofs = floor.(Int, transl)
-    x = transl .- ofs
+    initial_ofs = floor.(Int, transl)
+    x = transl .- initial_ofs
     if T <: Rational
         notencountered, buffer = rest
     else
@@ -330,28 +330,31 @@ function _find_closest_point_after_symop(pge::PeriodicGraphEmbedding{D,T}, t::SV
     end
     i = notencountered isa Int ? 1 : findfirst(notencountered)
     j = notencountered isa Int ? 2 : findnext(notencountered, i+1)
+    ofs = zero(MVector{D,T})
     mindist = if T <: Rational
         buffer .= pge.pos[i] .- x
         norm(buffer)
     else
-        pd2(pge.pos[i], x)
+        pd2(pge.pos[i], x; ofs)
     end
+    newofs = SVector{D,T}(ofs)
     while notencountered isa Int ? j ≤ notencountered : j isa Int
         newdist = if T <: Rational
             buffer .= pge.pos[j] .- x
             norm(buffer)
         else
-            pd2(pge.pos[j], x)
+            pd2(pge.pos[j], x; ofs)
         end
         if newdist < mindist
             mindist = newdist
+            T <: Rational || (newofs = SVector{D,T}(ofs))
             i = j
         end
         j = notencountered isa Int ? j+1 : findnext(notencountered, j+1)
     end
     (T <: Rational ? pge.pos[i] == x : isapprox(mindist, 0.0; atol=0.05)) || return PeriodicVertex{D}(0)
     notencountered isa Int || (notencountered[i] = false)
-    return PeriodicVertex(i, ofs)
+    return PeriodicVertex(i, initial_ofs .- newofs)
 end
 
 """
@@ -547,6 +550,7 @@ function retrieve_symmetries(pge::PeriodicGraphEmbedding3D{T}, eqs::AbstractVect
         # end
         hasmirror |= det(eq.mat) < 0
         push!(vmaps, vmap::Vector{PeriodicVertex3D})
+        yield()
     end
     neweqs = isempty(discarded) ? eqs : deleteat!(copy(eqs), discarded)
     SymmetryGroup3D(vmaps, neweqs, hasmirror, length(pge.pos)), discarded
