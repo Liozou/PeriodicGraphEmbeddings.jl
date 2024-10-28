@@ -82,7 +82,7 @@ function PeriodicGraphs.split_catenation(pge::PeriodicGraphEmbedding{D,T}) where
     splits = split_catenation(pge.g)
     ret = Vector{Tuple{PeriodicGraphEmbedding{D,T}, Vector{PeriodicGraphs.OffsetVertexIterator{D}}, SMatrix{D,D,Int,D*D}, Int}}(undef, length(splits))
     for (i, (subgraph, vmaps, mat, dim)) in enumerate(splits)
-        newcell = Cell(mat * pge.cell.mat)
+        newcell = Cell(pge.cell.mat * mat)
         invmat = inv(Rational{Int}.(mat))
         newpos = [invmat * pge[x] for x in first(vmaps)]
         moffsets = [.-floor.(Int, pos) for pos in newpos]
