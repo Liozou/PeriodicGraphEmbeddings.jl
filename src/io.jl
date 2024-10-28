@@ -89,12 +89,15 @@ function export_vtf(file::AbstractString, pge::PeriodicGraphEmbedding3D{T}, type
         end
         println(f)
 
-        ((_a, _b, _c), (_α, _β, _γ)), mat = cell_parameters(pge.cell)
-        println(f, "pbc $_a $_b $_c $_α $_β $_γ\n")
+        (_a, _b, _c), (_α, _β, _γ) = cell_parameters(pge.cell.mat)
+        println(f, "pbc $_a $_b $_c $_α $_β $_γ")
+        print(f, "# matrix ")
+        join(f, pge.cell.mat, ' ')
+        println(f, '\n')
 
         println(f, "ordered")
         for x in invcorres
-            coord = mat * ((T <: Rational ? widen.(pge.pos[x.v]) : pge.pos[x.v]) .+ x.ofs)
+            coord = pge.cell.mat * ((T <: Rational ? widen.(pge.pos[x.v]) : pge.pos[x.v]) .+ x.ofs)
             join(f, round.(Float64.(coord); digits=15), ' ')
             println(f)
         end
@@ -117,7 +120,7 @@ function export_cgd(file, pge::PeriodicGraphEmbedding{N}, name=basename(splitext
     open(file; write=true, append) do f
         println(f, "CRYSTAL")
         println(f, "  NAME\t", name)
-        (_lengths, _angles), _ = cell_parameters(pge.cell)
+        _lengths, _angles = cell_parameters(pge.cell.mat)
         lengths = Float64.(_lengths)
         angles = Float64.(_angles)
         print(f, "  GROUP\t\"")
@@ -155,7 +158,7 @@ function export_cgd_alt(file, pge::PeriodicGraphEmbedding{N}, name=basename(spli
     open(file; write=true, append) do f
         println(f, "CRYSTAL")
         println(f, "  NAME\t", name)
-        (_lengths, _angles), _ = cell_parameters(pge.cell)
+        _lengths, _angles = cell_parameters(pge.cell.mat)
         lengths = Float64.(_lengths)
         angles = Float64.(_angles)
         println(f, "  GROUP\tP1")

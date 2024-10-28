@@ -294,13 +294,13 @@ end
 
 
 function Base.show(io::IO, cell::Cell)
-    ((__a, __b, __c), (__α, __β, __γ)), _ = cell_parameters(cell)
+    (__a, __b, __c), (__α, __β, __γ) = cell_parameters(cell.mat)
     _a, _b, _c, _α, _β, _γ = Float64.((__a, __b, __c, __α, __β, __γ))
     print(io, cell isa Cell{Rational{Int}} ? Cell : typeof(cell))
     print(io, '(', cell.hall, ", (", _a, ", ", _b, ", ", _c, "), (", _α, ", ", _β, ", ", _γ, ')', ')')
 end
 function Base.show(io::IO, ::MIME"text/plain", cell::Cell)
-    ((__a, __b, __c), (__α, __β, __γ)), _ = cell_parameters(cell)
+    (__a, __b, __c), (__α, __β, __γ) = cell_parameters(cell.mat)
     _a, _b, _c, _α, _β, _γ = Float64.((__a, __b, __c, __α, __β, __γ))
     hall_symbol, crystal_system = HALL_SYMBOLS[cell.hall]
     print(io, cell isa Cell{Rational{Int}} ? Cell : typeof(cell))

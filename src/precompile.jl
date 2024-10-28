@@ -78,7 +78,7 @@ end
         PeriodicGraphEmbeddings.find_refid(["X+1/2,-A,Z","+X,+Z,+A"])
         cell = Cell(144, (7.0, 7.0, 7.0), (90.0, 90.0, 90.0))
         cell == Cell{Float64}(15, (4.0, 4.0, 4.0), (90.0, 90.0, 90.0))
-        cell_parameters(cell.mat)
+        cell_parameters(cell)
         find_hall_number("i -4 -2")
 
         for (T, pos) in [(Float64, apd_pos_float),
