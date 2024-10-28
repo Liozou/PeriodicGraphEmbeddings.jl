@@ -53,8 +53,7 @@ function export_vtf(file::AbstractString, pge::PeriodicGraphEmbedding3D{T}, type
             jmax = j - 1
             for i in 1:jmax
                 vertex = invcorres[i]
-                for x in neighbors(pge.g, vertex.v)
-                    y = PeriodicVertex3D(x.v, x.ofs .+ vertex.ofs)
+                for y in neighbors(pge.g, vertex)
                     if get!(corres, y, j) == j
                         j += 1
                         push!(invcorres, y)
