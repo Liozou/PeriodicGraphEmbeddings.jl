@@ -148,7 +148,7 @@ end
     offset_representatives!(itnoffset, [(-i,2,i+1) for i in 1:n])
     @test itn == itncopy != itnoffset
     for i in 1:n
-        @test Float32.(itn[i]) == Float32.(itnoffset[PeriodicVertex(i, (-i,2,i+1))])
+        @test Float32.(itn[i]) == Float32.(itnoffset[PeriodicVertex(i, (i,-2,-i-1))])
     end
 
     itnrotated = copy(itncopy)

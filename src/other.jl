@@ -3,9 +3,9 @@
 function PeriodicGraphs.offset_representatives!(pge::PeriodicGraphEmbedding, offsets)
     offset_representatives!(pge.g, offsets)
     for (i,x) in enumerate(pge.pos)
-        pge.pos[i] = x .- offsets[i]
+        pge.pos[i] = x .+ offsets[i]
     end
-    nothing
+    pge
 end
 
 function PeriodicGraphs.swap_axes!(pge::PeriodicGraphEmbedding{N}, t) where N
@@ -13,7 +13,7 @@ function PeriodicGraphs.swap_axes!(pge::PeriodicGraphEmbedding{N}, t) where N
     for (i,x) in enumerate(pge.pos)
         pge.pos[i] = x[t]
     end
-    nothing
+    pge
 end
 
 function PeriodicGraphs.make_supercell(cell::Cell{T}, t) where T
