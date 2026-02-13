@@ -28,6 +28,6 @@ PeriodicGraphEmbedding{D,T}(pge::PeriodicGraphEmbedding{N,S}) where {D,T,N,S}
 Cell
 cell_parameters
 EquivalentPosition
-Base.parse(::Type{EquivalentPosition}, s::AbstractString)
+Base.parse(::Type{EquivalentPosition{T}}, s::AbstractString, refid=("x", "y", "z")) where T
 find_refid
 ```

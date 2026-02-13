@@ -18,12 +18,12 @@ export EquivalentPosition,
 Representation of a symmetry operation in 3D, defined by a matrix multiplication and addition.
 
 ## Example
-```jldoctest
+```jldoctest; setup=:(using StaticArrays: SVector)
 julia> eq = parse(EquivalentPosition, "1-x, z, y+1/2")
 -x+1,z,y+1/2
 
 julia> eq([1//3, 0, 1//4])
-3-element StaticArrays.SVector{3, Rational{$Int}} with indices SOneTo(3):
+3-element SVector{3, Rational{$Int}} with indices SOneTo(3):
  2//3
  1//4
  1//2

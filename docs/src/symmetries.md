@@ -31,6 +31,7 @@ PeriodicGraphEmbeddings.SpglibDataset
 get_symmetry_equivalents
 PeriodicGraphEmbeddings.get_spglib_dataset
 check_valid_symmetry
+PeriodicGraphEmbeddings.SpglibSpacegroup
 get_spacegroup_type
 retrieve_symmetries
 ```
