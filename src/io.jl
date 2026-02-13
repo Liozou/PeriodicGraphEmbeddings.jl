@@ -1,7 +1,7 @@
 export export_vtf, export_cgd
 
 """
-    function export_vtf(file::AbstractString, pge::PeriodicGraphEmbedding3D{T}, types=nothing, repeatedges=6, colorname=false, tostring=string, atomnumof==(a,i)->(a isa Integer ? a : i)) where T
+    function export_vtf(file::AbstractString, pge::PeriodicGraphEmbedding3D{T}, types=nothing, repeatedges=6, colorname=false, tostring=string, atomnumof==(a,i)->(a isa Integer ? a : i); recenter=true) where T
 
 Export a [`PeriodicGraphEmbedding3D`](@ref) to a .vtf `file` (readable by VMD).
 
@@ -10,10 +10,13 @@ to string by the `tostring` function.
 The `atomnumof` function takes two arguments `ty` and `i` where `ty` is a type and `i` is
 the number of the vertex, and return an `Int` representing an atom number.
 """
-function export_vtf(file::AbstractString, pge::PeriodicGraphEmbedding3D{T}, types=nothing, repeatedges=6, colorname=false, tostring=string, atomnumof=(a,i)->(a isa Integer ? a : i)) where T
+function export_vtf(file::AbstractString, pge::PeriodicGraphEmbedding3D{T}, types=nothing, repeatedges=6, colorname=false, tostring=string, atomnumof=(a,i)->(a isa Integer ? a : i); recenter=true) where T
     endswith(file, ".vtf") || return export_vtf(file*".vtf", pge, types, repeatedges, colorname, tostring, atomnumof)
     mkpath(splitdir(file)[1])
     n = nv(pge.g)
+    if recenter
+        pge = PeriodicGraphEmbedding3D{T}(copy(pge.g), stack(pge.pos), pge.cell)
+    end
     open(file, write=true) do f
         invcorres = [PeriodicVertex3D(i) for i in 1:n]
         corres = Dict{PeriodicVertex3D,Int}([invcorres[i]=>i for i in 1:n])
@@ -88,10 +91,12 @@ function export_vtf(file::AbstractString, pge::PeriodicGraphEmbedding3D{T}, type
         end
         println(f)
 
-        (_a, _b, _c), (_α, _β, _γ) = cell_parameters(pge.cell.mat)
+        _lengths, _angles = cell_parameters(pge.cell.mat)
+        (_a, _b, _c) = Float64.(_lengths)
+        (_α, _β, _γ) = Float64.(_angles)
         println(f, "pbc $_a $_b $_c $_α $_β $_γ")
         print(f, "# matrix ")
-        join(f, pge.cell.mat, ' ')
+        join(f, Float64.(pge.cell.mat), ' ')
         println(f, '\n')
 
         println(f, "ordered")
