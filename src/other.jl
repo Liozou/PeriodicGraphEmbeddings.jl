@@ -77,9 +77,9 @@ function PeriodicGraphs.make_supercell(pge::PeriodicGraphEmbedding, t)
     PeriodicGraphEmbedding(g, newpos, cell)
 end
 
-function PeriodicGraphs.split_catenation(pge::PeriodicGraphEmbedding{D,T}) where {D,T}
+function PeriodicGraphs.split_connected_components(pge::PeriodicGraphEmbedding{D,T}) where {D,T}
     pge.cell.hall == 1 || error("Skew a non-P1 cell is not implemented")
-    splits = split_catenation(pge.g)
+    splits = split_connected_components(pge.g)
     ret = Vector{Tuple{PeriodicGraphEmbedding{D,T}, Vector{PeriodicGraphs.OffsetVertexIterator{D}}, SMatrix{D,D,Int,D*D}, Int}}(undef, length(splits))
     for (i, (subgraph, vmaps, mat, dim)) in enumerate(splits)
         newcell = Cell(pge.cell.mat * mat)
