@@ -9,7 +9,8 @@ export find_hall_number,
        find_symmetries,
        retrieve_symmetries
 
-public SpglibDataset, SpglibSpacegroup, get_spglib_dataset
+
+VERSION ≥ v"1.11.0-DEV.469" && eval(Expr(:public, :SpglibDataset, :SpglibSpacegroup, :get_spglib_dataset))
 
 import spglib_jll: libsymspg
 import LinearAlgebra
